@@ -1,0 +1,53 @@
+<h1><a href="#practical-2" id="practical-2">Practical 2</a></h1>
+<h2><a href="#introduction" id="introduction">Introduction</a></h2>
+<p>In this practical you will perform analyses of a real dataset to explore and develop your understanding of missing data mechanisms, the conditions under which complete case analyses are valid, and multiple imputation of a single variable with missing values.</p>
+<p>The practical will use data from the 1999-2000 National Health and Nutrition Examination Survey (NHANES) conducted in the the USA. The dataset we will use contains a small subset of the many variables collected at this survey. It has also been linked to mortality data, so that we have follow-up for mortality from the survey at 1999-2000 through to around 2015. The survey was conducted using complex survey sampling techniques, which for the purposes of these illustrative practicals we will ignore.</p>
+<p>Load the dataset and summarize its contents. Click on Browse to look at the dataset.</p>
+<pre><code>use nhanesMort.dta, clear
+summ
+</code></pre>
+<p>The data summary shows that quite a few of the variables collected at the survey have some missing data. There are no missing values in the mortality status variable <code>dead</code> nor the corresponding time to death/censoring, <code>tMonths</code>.</p>
+<h2><a href="#alcohol-consumption" id="alcohol-consumption">Alcohol consumption</a></h2>
+<p>The first analysis of the NHANES data we will consider is a marginal analysis of the alcohol variable <code>ALQ150</code> we have, which is the respondent&rsquo;s answer to the question &lsquo;Was there ever a time or times in your life when you drank 5 or more drinks of any kind of alcoholic beverage almost every day?&rsquo;. Since this variable is binary (yes/no), this analysis aims to simply estimate the proportion whose answer to this question is yes. The data summary earlier showed that of the <code>r dim(nhanesMort)[1]</code> observations in the dataset, <code>r sum(is.na(nhanesMort$ALQ150))</code> are missing this variable.</p>
+<h3><a href="#complete-case-analysis" id="complete-case-analysis">Complete case analysis</a></h3>
+<p>First perform a complete case analysis:</p>
+<pre><code>proportion ALQ150
+</code></pre>
+<p><strong>Next, perform a logistic regression analysis to see whether and how missingness in <code>ALQ150</code> is associated with age, ethnicity, and gender. What do you conclude about the missingness mechanism for <code>ALQ150</code>?</strong></p>
+<pre><code>gen rALQ=1*(ALQ150!=.)
+logistic rALQ age i.ethnicity i.gender
+</code></pre>
+<p>To further help judge whether the complete case analysis is likely to be biased, and if so, how, perform an analysis to investigate how the probability of saying Yes to the <code>ALQ150</code> question is associated with the covariates age, ethnicity, gender and weight.</p>
+<pre><code>logistic ALQ150 age i.ethnicity i.gender
+</code></pre>
+<p><strong>Given the results of your analyses, do you think the complete case proportion of Yes estimated earlier is unbiased, biased upwards, or biased downwards?</strong></p>
+<h3><a href="#multiple-imputation" id="multiple-imputation">Multiple imputation</a></h3>
+<p>We will now use multiple imputation to impute the missing <code>ALQ150</code> values assuming they are MAR given age, ethnicity and gender. In the next practical we will see how we can exploit the other partially observed variables in the imputation process.</p>
+<p>The first step to MI in Stata is to tell Stata what type of format to store the later imputed datasets. Essentially you can store them in wide or long form. Here we will use the wide form. This means that each imputation of <code>ALQ150</code> will be stored as an additional variable/column.</p>
+<pre><code>mi set wide
+</code></pre>
+<p>Next we have to register the variables which we are going to impute. Here this is just <code>ALQ150</code>:</p>
+<pre><code>mi register imputed ALQ150
+</code></pre>
+<p>Now we are ready to impute the missing values in <code>ALQ150</code>. Since <code>ALQ150</code> is binary, we will ask Stata to impute (10 times) the missing values in it using a logistic regression model, with age, ethnicity and gender as covariates:</p>
+<pre><code>mi impute logit ALQ150 age i.ethnicity i.gender, add(10) rseed(79324)
+</code></pre>
+<p>Now we can analyse the imputed datasets. The majority of Stata&rsquo;s estimation commands are compatible with MI. If they are, to perform the MI analysis you simply prefix the command with <code>mi estimate:</code>:</p>
+<pre><code>mi estimate: proportion ALQ150
+</code></pre>
+<p><strong>Does the change in estimate agree with what you predicted earlier?</strong></p>
+<p><strong>Under what assumption is your MI analysis valid? Do you think this assumption is plausible, and more plausible than the assumption required for the CCA estimate to be valid?</strong></p>
+<h2><a href="#analysis-of-mortality" id="analysis-of-mortality">Analysis of mortality</a></h2>
+<p>If you have time, you can consider a second substantive analysis, which we will also look at in the next practical. Our second substantive analysis will be a model for how the probability of death (all-causes) within 10 years relates to the various &lsquo;baseline&rsquo; variables which were measured at the year 1999-2000 survey.</p>
+<p>First we will use the event indicator <code>dead</code> and the time variable <code>tMonths</code> to construct our binary outcome variable. Before we do this, we look at whether any individuals were censored for mortality before 10 years:</p>
+<pre><code>summ tMonths if dead==0
+</code></pre>
+<p>This shows that the first censoring took place at 15 years follow-up. We can therefore proceed to create a binary variable for 10 year mortality without any problems with censoring:</p>
+<pre><code>gen dead10 = 1*((dead==1) &amp; (tMonths&lt;120))
+</code></pre>
+<p>Next fit a complete case logistic regression model for the <code>dead10</code> variable, with <code>gender</code>, <code>age</code>, <code>ethnicity</code>, <code>sbp</code>, <code>waist_circum</code>, <code>weight</code>, <code>total_cholesterol_chol</code>, <code>hdl</code> and <code>ALQ150</code> as covariates:</p>
+<pre><code>logistic dead10 i.gender age i.ethnicity sbp waist_circum weight total_chol hdl i.ALQ150
+</code></pre>
+<p><strong>How many observations have been omitted due to missing data? What is the impact of this on the estimates, standard errors and confidence intervals?</strong></p>
+<p><strong>Under what conditions would this complete case analysis be unbiased? Do you think these conditions are plausible here? Perform some data analyses to investigate.</strong></p>
+<p>In the next practical we will look at how MI can be applied to impute the missing values in all the variables.</p>

@@ -1,0 +1,39 @@
+<h1><a href="#practical-1" id="practical-1">Practical 1</a></h1>
+<h2><a href="#introduction" id="introduction">Introduction</a></h2>
+<p>The aim of this practical is to develop a good understanding of the MCAR, MAR and MNAR assumptions, and to explore what can, and what cannot be established based on the observed data regarding the missingness mechanism. To do so we will use a series of simple simulated datasets, containing three variables: <code>age</code>, <code>sbpcomplete</code> and <code>sbpmiss</code>. The first represents the person&rsquo;s age in years. The <code>sbpcomplete</code> variable is each individual&rsquo;s systolic blood pressure. The <code>sbpmiss</code> is the same variable with some values made missing under some mechanism. Of course in a real study where SBP was affected by missingness, we would not have the <code>sbpcomplete</code> variable, but only the partially observed version <code>sbpmiss</code>. This is critical to bear in mind as we proceed with analyses.</p>
+<h2><a href="#dataset-1" id="dataset-1">Dataset 1</a></h2>
+<p>Make sure your current working directory is set to where you have the course datasets saved, using the <code>cd</code> command. Then load the first dataset in summarize it:</p>
+<pre><code>use practical1_1.dta, clear
+summ
+</code></pre>
+<p>Next, plot the observed SBP values against age:</p>
+<pre><code>scatter sbpmiss age, name(scatter1, replace)
+</code></pre>
+<p>To investigate missingness in <code>sbpmiss</code>, we first define an indicator <code>r</code> of whether it is observed (=1) or missing (=0):</p>
+<pre><code>gen r = 1*(sbpmiss!=.)
+</code></pre>
+<p>Next, we can investigate the missingness mechanism for <code>sbpmiss</code> by fitting a logistic regression model, putting the fully observed <code>age</code> variable as a covariate:</p>
+<pre><code>logistic r age
+</code></pre>
+<p>What do you conclude from this analysis regarding the missingness mechanism for <code>sbpmiss</code>?</p>
+<p>Next, we attempt to test whether the data are MAR or MNAR, by adding <code>sbpmiss</code> to the logistic regression:</p>
+<pre><code>logistic r age sbpmiss
+</code></pre>
+<p>Can you explain the output from the logistic regression?</p>
+<p>Lastly, we cheat, and use <code>sbpcomplete</code> as a covariate in the logistic regression:</p>
+<pre><code>logistic r age sbpcomplete
+</code></pre>
+<p>What do you conclude about the missingness mechanism?</p>
+<h2><a href="#dataset-2" id="dataset-2">Dataset 2</a></h2>
+<p>Repeat the steps performed earlier on the second dataset, <code>data2</code>. What can you conclude regarding the missingness mechanism without using <code>sbpcomplete</code>? What do you conclude if you cheat and make use of <code>sbpcomplete</code>?</p>
+<p>Fit the following model and give an explanation for the results:</p>
+<pre><code>logistic r sbpcomplete
+</code></pre>
+<h2><a href="#dataset-3" id="dataset-3">Dataset 3</a></h2>
+<p>Repeat the process for the third dataset, <code>data3</code>. At what point in your analyses did you conclusions change compared to when analysing the second dataset? What conclusions can you draw about being able to distinguish between MAR and MNAR in real datasets, where the <code>sbpcomplete</code> variable would not be available?</p>
+<h2><a href="#dataset-4" id="dataset-4">Dataset 4</a></h2>
+<p>Repeat the analysis for the fourth dataset, <code>data4</code>. From the observed data (i.e. without using <code>sbpcomplete</code>), what might you conclude regarding missingness? What type of mechanism did you find when you used <code>sbpcomplete</code>? What is the explanation for your findings? Producing the following plot may help:</p>
+<pre><code>scatter sbpcomplete age
+</code></pre>
+<h2><a href="#conclusions" id="conclusions">Conclusions</a></h2>
+<p>The analyses of these example datasets hopefully make clear that although the observed data can help us learn about whether missingness is associated with fully observed variables (in practice we find it often is), we cannot determine whether the data are MAR or MNAR. In light of this, an approach often advocated, is to collect variables thought to be related to missingness to try and make the MAR assumption more plausible. Next, we can perform an analysis under the MAR assumption (which we will discuss in subsequent sessions). If we believe however that the data are plausibly MNAR, sensitivity analyses should ideally be performed.</p>

@@ -1,0 +1,117 @@
+# Practical 3 solutions
+
+## Introduction
+~~~~
+<<dd_do>>
+use nhanesMort.dta, clear
+summ tMonths if dead==0
+gen dead10 = 1*((dead==1) & (tMonths<120))
+logistic dead10 i.gender age i.ethnicity sbp waist_circum weight total_chol hdl i.ALQ150
+est store CCA
+<</dd_do>>
+~~~~
+
+## Missing data patterns
+
+~~~~
+<<dd_do>>
+misstable patterns
+<</dd_do>>
+~~~~
+
+**Is the missingness pattern monotone?**
+
+No, the pattern is not monotone.
+
+## Multiple imputation
+
+~~~~
+<<dd_do>>
+mi set flong
+mi register imputed sbp waist_circum weight total_chol hdl ALQ150
+<</dd_do>>
+~~~~
+
+~~~~
+<<dd_do>>
+mi impute chained (regress) sbp waist_circum weight total_chol hdl (logit) ALQ150 = dead10 gender age i.ethnicity, add(10) rseed(61177)
+<</dd_do>>
+~~~~
+
+~~~~
+<<dd_do>>
+mi estimate, post: logistic dead10 i.gender age i.ethnicity sbp waist_circum weight total_chol hdl i.ALQ150
+est store MI
+<</dd_do>>
+~~~~
+
+~~~~
+<<dd_do>>
+est table CCA MI, se
+<</dd_do>>
+~~~~
+
+**How do the two sets of estimates compare? What assumptions are required for the two sets of results to be valid? How do the standard errors compare?**
+
+The estimates are broadly quite close to each other. There are some differences though. The intercept has changed non trivially, as has the coefficient for being female.
+
+As discussed in the previous practical, the CCA analysis is valid under a variety of different possible conditions. In the end we found it plausible that the CCA was valid as the probability of being a complete case was plausibly independent of the outcome conditional on the covariates. This assumption allows for the possibility that missingness in `ALQ150` depends on the Yes/No answer to `ALQ150` (i.e. MNAR), and it is quite plausible that this is the case. In particular one could imagine that people who are or have been heavy drinkers may be less willing to respond to the `ALQ150` question.
+
+The MI analysis is valid assuming the data are MAR and the imputation models are correctly specified. Here where we have a complex missingness pattern, MAR is difficult to understand (there is a technical definition for it still though). Roughly speaking though, if missingness in `ALQ150` is dependent on `ALQ150`, conditional on the other variables we have used, MAR is violated, and so the MI estimates may be biased.
+
+The MI standard errors are all smaller than the CCA standard errors. This is what we should expect. We have gained information by using MI. The information we have gained is that from the the observed values in the incomplete cases who are omitted in the CCA. Because of this, we tend to gain the most information for coefficicients of the fully observed variables, whereas coefficients for variables with the largest amounts of missing data are reduced less (at least in the absence of strong auxiliary variables).
+
+## Model checking and convergence
+
+~~~~
+<<dd_do>>
+save prac3imps, replace
+mi impute chained (regress) sbp waist_circum weight total_chol hdl (logit) ALQ150 = dead10 gender age i.ethnicity, burnin(100) rseed(61177) chainonly savetrace(impstats, replace)
+<</dd_do>>
+~~~~
+
+~~~~
+<<dd_do>>
+use impstats, clear
+scatter ALQ150_mean iter
+<</dd_do>>
+~~~~
+
+~~~~
+<<dd_do>>
+use prac3imps, clear
+midiagplots hdl, name(pr3plot1, replace)
+<</dd_do>>
+~~~~
+
+<<dd_graph: graphname(pr3plot1) saving(pr3plot1.png) replace>>
+
+**Do you see any large differences between the distributions of the observed and imputed values of `hdl` that concern you?**
+
+There is a noticeable difference in distribution. As noted previously, unless the data are MCAR we can expect some difference in distribution between observed and imputed values. However, the plot reveals that the observed HDL values are somewhat right skewed, and the imputed values do not seem to have such a skewness, as a result of normal linear regression being used. One alternative which could be explored is using the predictive mean matching imputation `pmm`, rather than normal linear regression.
+
+## Monte-Carlo error
+
+~~~~
+<<dd_do>>
+mi estimate, mcerror: logistic dead10 i.gender age i.ethnicity sbp waist_circum weight total_chol hdl i.ALQ150
+<</dd_do>>
+~~~~
+
+## Omitting the outcome
+
+~~~~
+<<dd_do>>
+mi extract 0, clear
+mi set flong
+mi register imputed sbp waist_circum weight total_chol hdl ALQ150
+mi impute chained (regress) sbp waist_circum weight total_chol hdl (logit) ALQ150 = gender age i.ethnicity, add(10) rseed(61177)
+mi estimate, post: logistic dead10 i.gender age i.ethnicity sbp waist_circum weight total_chol hdl i.ALQ150
+est store MI2
+est table CCA MI MI2
+<</dd_do>>
+~~~~
+
+**What impact does omitting the substantive model outcome variable from the imputation process have on estimates?**
+
+Compared to the estimates from the preceding MI run, we see that the coefficients corresponding to the partially observed variables have all been diluted towards the null. This is because in this imputation run we have imputed these covariates assuming they have no association with the outcome variable `dead10`, conditional on the other covariates. This illustrates the importance of conditioning on the substantive model outcome variable(s) when imputing missing substantive model covariates (see here for more: https://doi.org/10.1093/brain/awr061).

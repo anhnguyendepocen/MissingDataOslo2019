@@ -1,0 +1,64 @@
+<h1><a href="#practical-3" id="practical-3">Practical 3</a></h1>
+<h2><a href="#introduction" id="introduction">Introduction</a></h2>
+<p>In this practical we will continue analysing the NHANES 1999-2000 data from the previous practical. By the end you should know how to describe the missing value patterns in a dataset and understand the key practical aspects of performing multiple imputation using chained equations.</p>
+<p>We will focus on the regression analysis for mortality that was considered at the end of the previous practical. Load the data, generate the 10 year binary mortality indicator, and fit the substantive model of interest using complete case analysis:</p>
+<pre><code>summ tMonths if dead==0
+gen dead10 = 1*((dead==1) &amp; (tMonths&lt;120))
+logistic dead10 i.gender age i.ethnicity sbp waist_circum weight total_chol hdl i.ALQ150
+est store CCA
+</code></pre>
+<p>The <code>est store CCA</code> line saves the estimation results so that we can more easily compare the results with the MI results later on.</p>
+<h2><a href="#missing-data-patterns" id="missing-data-patterns">Missing data patterns</a></h2>
+<p>An important first step in most data analyses is summarising the data and performing basic exploratory analyses. When missing data is a problem, it is important to find out about how much and where the missing data is. The <code>summarize</code> function indicates the number of observed values per variable. It is also usually of interest to examine the missing data &lsquo;patterns&rsquo; - i.e. which variables tend to be missing at the same. This can be achieved using the <code>misstable</code> command:</p>
+<pre><code>misstable patterns
+</code></pre>
+<p><strong>Is the missingness pattern monotone?</strong></p>
+<h2><a href="#multiple-imputation" id="multiple-imputation">Multiple imputation</a></h2>
+<p>We will now perfor MI on the dataset, imputing the missing values in all of the variables with missing values. First we must again <code>mi set</code> the data and then register the variables we are going to impute:</p>
+<pre><code>mi set flong
+mi register imputed sbp waist_circum weight total_chol hdl ALQ150
+</code></pre>
+<p>We will now use <code>mi impute chained</code> to use chained equations (or fully conditional specification) imputation:</p>
+<pre><code>mi impute chained (regress) sbp waist_circum weight total_chol hdl (logit) ALQ150 = dead10 gender age i.ethnicity, add(10) rseed(61177)
+</code></pre>
+<p>The <code>(regress)</code> indicates that we want the variables that follow to be imputed using normal linear regression models. Similarly the <code>(logit)</code> indicates that we want the binary variable <code>ALQ150</code> to be imputed using logistic regression. We then use <code>=</code> followed by the fully observed variables to indicate that we want the imputation models of the partially observed variables to condition on these fully observed variables as a additional covariates.</p>
+<p>After the imputation has finished, we can re-fit our analysis model and save the estimation results (the <code>post</code> option is used here to get Stata to save the estimation results such that the <code>est store</code> command will work):</p>
+<pre><code>mi estimate, post: logistic dead10 i.gender age i.ethnicity sbp waist_circum weight total_chol hdl i.ALQ150
+est store MI
+</code></pre>
+<p>Lastly, we can compare the estimates and standard errors between the complete case analysis and the MI analysis:</p>
+<pre><code>est table CCA MI, se
+</code></pre>
+<p><strong>How do the two sets of estimates compare? What assumptions are required for the two sets of results to be valid? How do the standard errors compare?</strong></p>
+<h2><a href="#model-checking-and-convergence" id="model-checking-and-convergence">Model checking and convergence</a></h2>
+<p>There are a number of ways of checking various aspects of the imputation process, some of which we will now explore. First we will look at the number of cycles or iterations used. Stata&rsquo;s default for this (the <code>burnin</code> option) is 10. To assess convergence we need to re-run the imputation process with a larger number of iterations. We will use <code>burnin(100)</code> to specify this, <code>chainonly</code> to tell Stata to not actually generate any imputations, and <code>savetrace</code> to ask it to instead save the means and SDs of the imputed values at each of the 100 iterations to a new file called <code>impstats</code>. Before we do so, we save the imputed data:</p>
+<pre><code>save prac3imps, replace
+mi impute chained (regress) sbp waist_circum weight total_chol hdl (logit) ALQ150 = dead10 gender age i.ethnicity, burnin(100) rseed(61177) chainonly savetrace(impstats, replace)
+</code></pre>
+<p>Now we can load <code>impstats</code> and do some scatter plots to look at convergence:</p>
+<pre><code>use impstats, clear
+scatter ALQ150_mean iter
+</code></pre>
+<p>The plots show the means and SDs of the variables that are being imputed by iteration. The plot is consistent with the algorithm converging quickly to its so called stationary distribution. In principle we should have a look at the plots for the other variables too. The plot suggests a small number (e.g. 10) of iterations is probably sufficient.</p>
+<p>Another check is to examine the distribution of imputed values and compare it to the distribution of the observed values. Unless data are MCAR, these distributions are expected to be different. However, examining the distributions often reveals differences which are probably not simply due to non MCAR missingness, e.g. the observed values have a very skewed distribution and are imputed values are more normally distributed by virtue of the fact we have used a normal imputation model. To examine the distributions, we will use a user (actually some people from StataCorp) written command <code>midiagplots</code>. You will need to install it if you want to use it, using <code>help midiagplots</code>.</p>
+<p>To use it, reload the original data and re-perform the We will use it with the <code>hdl</code> variable:</p>
+<pre><code>use prac3imps, clear
+midiagplots hdl
+</code></pre>
+<p><strong>Do you see any large differences between the distributions of the observed and imputed values of <code>hdl</code> that concern you?</strong></p>
+<h2><a href="#monte-carlo-error" id="monte-carlo-error">Monte-Carlo error</a></h2>
+<p>MI inferences are subject to Monte-Carlo or simulation error, because the imputations are to some extent random. This means that if you change the random number seed and re-run the imputation process, all your estimates, p-values and confidence intervals will change somewhat. These differences can be made arbitrarily small by increasing the number of imputations. How small does the Monte-Carlo need to be? We should ensure they are small enough so that a new run with a different seed would give results which materially are the same.</p>
+<p>In this paper (<a href="https://doi.org/10.1002/sim.4067">https://doi.org/10.1002/sim.4067</a>) White and colleagues explored various approaches to choosing the number of imputations to ensure that estimates, p-values and test statistics have relatively small Monte-Carlo error. In the end they recommend the number of imputations should be at least equal to the percentage of incomplete cases.</p>
+<p>Stata has some nice functionality to help you assess Monte-Carlo error. Add <code>mcerror</code> as an option to <code>mi estimate</code>:</p>
+<pre><code>mi estimate, mcerror: logistic dead10 i.gender age i.ethnicity sbp waist_circum weight total_chol hdl i.ALQ150
+</code></pre>
+<p>In the output you get Monte-Carlo error estimates for each quantity: estimated coefficients, standard errors, p-values, test statistics, confidence interval limits. These quantify the standard error in each of these as an estimate of the value you would get with an infinite number of imputations.</p>
+<h2><a href="#omitting-the-outcome" id="omitting-the-outcome">Omitting the outcome</a></h2>
+<p>If time permits, try re-running the imputation for the missing covariates but without using the substantive model outcome variable <code>dead10</code> in the imputation process. To drop the existing imputations you can use:</p>
+<pre><code>mi extract 0, clear
+</code></pre>
+<p>You will then need to use <code>mi set</code> and <code>mi register</code> again. You may want to make use of <code>est store</code> again to facilitate comparing estimates with those obtained using MI earlier.</p>
+<p><strong>What impact does omitting the substantive model outcome variable from the imputation process have on estimates?</strong></p>
+<h2><a href="#conclusions" id="conclusions">Conclusions</a></h2>
+<p>We have seen that MI using chained equations is a flexible and easy to use approach to handling missing data. Care is needed however in a number of the specific details of its implementation, including choice of variables to include, choice of imputation method and checking if these are reasonable for the data, convergence checking, and Monte-Carlo error. In the next practical we will explore further issues which arise, specifically when there are important conflicts between assumptions made by the imputation and substantive models.</p>
+<p>The analyses have also hopefully highlighted that it is not the case that estimates from MI are always less biased than those from CCA. Which is plausibly unbiased (if either) depends on what one believes about the missingness mechanisms and crucially on what the substantive model consists of. For further reading on this topic, see <a href="https://doi.org/10.1093/ije/dyz032">https://doi.org/10.1093/ije/dyz032</a> for more on this.</p>

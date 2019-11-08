@@ -1,0 +1,112 @@
+# Practical 2 solutions
+
+~~~~
+<<dd_do>>
+use nhanesMort.dta, clear
+summ
+<</dd_do>>
+~~~~
+
+# Alcohol consumption
+
+## Complete case analysis
+
+~~~~
+<<dd_do>>
+proportion ALQ150
+<</dd_do>>
+~~~~
+
+**Next, perform a logistic regression analysis to see whether and how missingness in `ALQ150` is associated with age, ethnicity, and gender. What do you conclude about the missingness mechanism for `ALQ150`?**
+
+To fit a logistic regression model for missingness of `ALQ150` we will use `is.na(nhanesMort$ALQ150)` as our dependent variable. Thus 'success' in the logistic regression will correspond to `ALQ150` being missing.
+~~~~
+<<dd_do>>
+gen rALQ=1*(ALQ150!=.)
+logistic rALQ age i.ethnicity i.gender
+<</dd_do>>
+~~~~
+The logistic regression model shows that the chance of `ALQ150` being missing is higher with increased age and being female. Non-Hispanic Whites are less likely than the reference ethnic group Mexican American to have `ALQ150` missing. The p-values of these coefficients are very small - so we can confidently reject `ALQ150` being MCAR. We cannot however distinguish between MAR and MNAR.
+
+**To help judge whether the complete case analysis is likely to be biased, and if so, how, perform an analysis to investigate how the probability of saying Yes to the `ALQ150` question is associated with the covariates age, ethnicity, gender and weight. Given the results of your analyses, do you think the complete case proportion of Yes estimated earlier is unbiased, biased upwards, or biased downwards?**
+
+~~~~
+<<dd_do>>
+logistic ALQ150 age i.ethnicity i.gender
+<</dd_do>>
+~~~~
+
+The first thing to note is that this analysis is itself a complete case analysis. From the results from the lecture, we know that it will be valid if the probability of being a complete case, which here corresponds to having `ALQ150` observed, is independent of the outcome variable (`ALQ150`), conditional on the covariates (`age`, `ethnicity`, `gender`). The results suggest that you are more likely to answer Yes to `ALQ150` if you are older. Being non-Hispanic White (rather than Mexican American) and/or female is associated with a lower chance of answering Yes to `ALQ150`.
+
+Our analysis of interest here is the simple marginal proportion of Yes to `ALQ150`. The complete case analysis for this marginal analysis is only unbiased if missingness is completely at random. We have strong evidence against MCAR, and the data suggest (not surprisingly perhaps) that age, ethnicity and gender are related to `ALQ150`. It is thus reasonable to conclude that the CCA proportion of Yes in `ALQ150` is not unbiased.
+
+The direction of the bias is difficult to predict without more analyses. Older people are more likely to be missing `ALQ150`, and are more likely to be Yes on `ALQ150` (assuming the preceding CCA regression can be trusted), implying the CCA proportion of Yes would be biased downwards. Women are more likely to be missing `ALQ150`, and are less likely to be Yes, which would mean the CCA proportion of Yes is biased upwards. Conversely, Non-Hispanic Whites are less likely to be missing and less likely to be Yes, suggesting the CCA proportion of Yes is biased downwards.
+
+## Multiple imputation
+
+~~~~
+<<dd_do>>
+mi set wide
+mi register imputed ALQ150
+mi impute logit ALQ150 age i.ethnicity i.gender, add(10) rseed(79324)
+mi estimate: proportion ALQ150
+<</dd_do>>
+~~~~
+
+**Does the change in estimate agree with what you predicted earlier?**
+
+We see that the estimated proportion has decreased slightly. The direction and magnitude of the change from CCA to MI analysis was difficult to predict, given the multiple associations we saw earlier between missingness in `ALQ150` and the variables we have used in the imputation model and the relationship between `ALQ150` itself and these variables.
+
+**Under what assumption is your MI analysis valid? Do you think this assumption is plausible, and more plausible than the assumption required for the CCA estimate to be valid?**
+
+The MI analysis is valid provided that the missing values in `ALQ150` are MAR conditional on the covariates used in the imputation model, which were age, ethnicity and gender. It is impossible from the data to say whether this assumption is true, or instead the probability of missingness in `ALQ150` depends on the Yes/No value even after adjusting for age, ethnicity and gender. The MAR assumption is however much more plausible than the MCAR assumption, which we have strong evidence to reject from our earlier logistic regression analysis of missingness in `ALQ150`.
+
+# Analysis of mortality
+
+~~~~
+<<dd_do>>
+summ tMonths if dead==0
+gen dead10 = 1*((dead==1) & (tMonths<120))
+logistic dead10 i.gender age i.ethnicity sbp waist_circum weight total_chol hdl i.ALQ150
+<</dd_do>>
+~~~~
+
+**How many observations have been omitted due to missing data? What is the impact of this on the estimates, standard errors and confidence intervals?**
+
+Of the 4441 observations in the dataset, 1234 have been omitted because at least one of the variables involved in the regression has a missing value. The impact of this is that the standard errors from the CCA are narrower than what they would have been with complete data, and confidence intervals are wider. The estimates may also be biased.
+  
+**Under what conditions would this complete case analysis be unbiased? Do you think these conditions are plausible here? Perform some data analyses to investigate.**
+
+As our substantive analysis is a regression model, the CCA is valid if the probability of being a complete case is independent of the outcome (`dead10`) conditional on the set of covariates in the model. The missingness is confined to a subset of the covariates in the model, which were measured in the original survey during 1999-2000. It is a priori plausible that although missingness in these covariates may be related to each other and themselves, that conditional on these, missingness is independent of the future 10 year mortality variable. In this case the CCA would be (asymptotically) unbiased.
+
+In fact, because the substantive analysis is a logistic regression, there are alternative conditions under which the coefficients of the covariates are estimated unbiasedly. Specifically, it would be valid if missingness just depends on the outcome `dead10` and conditional on this not on the covariates (this is not very plausible). Further, we can say that estimates of (for example) the total cholesterol variable are unbiased provided the probability of being a complete case doesn't depend on total cholesterol, conditional on the outcome and other covariates. Such an assumption would seem quite reasonable.
+
+To further explore the plausiblility of different missingness assumptions, we fit some models to see how the probability of being a complete case depends on the fully observed outcome `dead10` and the covariates in our substantive model which are fully observed (`age` and `ethnicity`):
+
+~~~~
+<<dd_do>>
+gen cc = 1*(e(sample)==1)
+logistic cc dead10
+<</dd_do>>
+~~~~
+
+The first regression we fit shows that the probability of being a complete case depends on the outcome variable in the substantive analysis, `dead10`. This association is obviously not causal - missingness in variables in the year 1999-2000 cannot be caused by future mortality. The association is due to other factors which causally affect missingness and also subsequent mortality.
+
+Next we add in the covariates from our substantive analysis which are fully observed:
+~~~~
+<<dd_do>>
+logistic cc dead10 i.gender age i.ethnicity
+<</dd_do>>
+~~~~
+
+This shows that the probability of being a complete case  is still associated with `dead10` conditional on `gender`, `age` and `ethnicity`, and moreover that gender and ethnicity are associated with missingness. From these analyses it is difficult to say with any certainty whether the earlier CCA is valid.
+
+We cannot put all the substantive model variables into our model for whether an individual is a complete case, because of the missingness in some of the covariates. Nevertheless, the variable which by far has the most missingness is `ALQ150`, and so whether an individual is a complete case is to a great extent driven by missingness in `ALQ150`. Thus we will look at how missingness in `ALQ150` depends on `dead10` and the other covariates in the substantive model, which are mostly fully observed:
+
+~~~~
+<<dd_do>>
+logistic rALQ dead10 i.gender age i.ethnicity sbp waist_circum weight total_chol hdl
+<</dd_do>>
+~~~~
+
+This analysis shows no evidence that the probability of `ALQ150` being missing is associated with `dead10`, the outcome variable in our substantive model, conditional on the other covariates. This supports an assumption that the probability of being a complete case is independent of `dead10` conditional on the covariates in our substantive model - under which our CCA would be unbiased.

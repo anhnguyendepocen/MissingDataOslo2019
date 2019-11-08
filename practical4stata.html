@@ -1,0 +1,80 @@
+<h1><a href="#practical-4" id="practical-4">Practical 4</a></h1>
+<h2><a href="#introduction" id="introduction">Introduction</a></h2>
+<p>In this practical we will continue analysing the NHANES 1999-2000 data, and will explore how to handle interactions in the substantive (outcome) model and survival substantive models.</p>
+<h2><a href="#substantive-model-interactions" id="substantive-model-interactions">Substantive model interactions</a></h2>
+<p>We will explore how to handle interactions in the substantive (outcome) model by way of a new illustrative substantive model. First, re-load the data:</p>
+<pre><code>use &quot;nhanesMort.dta&quot;, clear
+</code></pre>
+<p>Next we will fit our new substantive model: a linear regression for systolic blood pressure with the other variables measured at the 1999-2000 survey as covariates. We also include an interaction between <code>waist_circum</code> and <code>ALQ150</code>:</p>
+<pre><code>reg sbp i.gender age i.ethnicity waist_circum weight total_chol hdl i.ALQ150 c.waist_circum#i.ALQ150
+est store CCA
+</code></pre>
+<p><strong>Given we now have the interaction term <code>waist_circum:ALQ150Yes</code>, how should the coefficients for <code>waist_circum</code>, <code>ALQ150Yes</code> and <code>waist_circum:ALQ150Yes</code> be interpreted?</strong></p>
+<h3><a href="#impute-then-transform" id="impute-then-transform">Impute then transform</a></h3>
+<p>We will now impute the missing values in the variables, looking at different approaches to handling the interaction term. The first approach, &lsquo;impute then transform&rsquo;, ignores the issue of interactions at the imputation stage, and then simply creates the interaction terms in the imputed datasets (this is the transform bit in &lsquo;impute then transform&rsquo;).</p>
+<p>Since our substantive model only involves variables at the time of the survey (and not the subsequent follow-up for mortality), we will now impute using only variables from the time of the survey (this is not though to say one could or should not use the mortality information):</p>
+<pre><code>mi set flong
+mi register imputed sbp waist_circum weight total_chol hdl ALQ150
+mi impute chained (reg) sbp waist_circum weight total_chol hdl (logit) ALQ150, add(10) rseed(21466)
+</code></pre>
+<p><strong>Now fit the substantive model, including the interaction term, to the imputed datasets, and compare the estimates to the earlier complete case estimates. In particular, how much has the coefficient for the interaction term changed?</strong></p>
+<pre><code>mi estimate, post: reg sbp i.gender age i.ethnicity waist_circum weight /*
+*/ total_chol hdl i.ALQ150 c.waist_circum#i.ALQ150
+est store MIimpTransform
+est table CCA MIimpTransform
+</code></pre>
+<h3><a href="#passive-imputation" id="passive-imputation">Passive imputation</a></h3>
+<p>Next we will try an alternative approach called &lsquo;passive imputation&rsquo;. In this approach we will include the interaction between <code>waist_circum</code> and <code>ALQ150</code> in the imputation model for <code>sbp</code>. This means that as the algorithm iterates, and thus new imputed values of <code>waist_circum</code> and <code>ALQ150</code> are created, the interaction term will be updated when imputing missing values in <code>sbp</code>. To do this we specify a separate <code>(reg)</code> statement for <code>sbp</code> and use the <code>include()</code> option to tell Stata to include the desired interaction term:</p>
+<pre><code>mi extract 0, clear
+mi set flong
+mi register imputed sbp waist_circum weight total_chol hdl ALQ150
+mi impute chained (reg, include((waist_circum*ALQ150))) sbp /*
+*/ (reg) waist_circum weight total_chol hdl (logit) ALQ150, add(10) rseed(21466)
+</code></pre>
+<p><strong>Fit the substantive model to the imputed datasets and compare the results with those obtained earlier. Check what modelling assumptions have been made by the imputation process and consider how this may impact on the validity of the final estimates.</strong></p>
+<pre><code>mi estimate, post: reg sbp i.gender age i.ethnicity waist_circum weight /*
+*/ total_chol hdl i.ALQ150 c.waist_circum#i.ALQ150
+est store MIpassive
+est table CCA MIimpTransform MIpassive
+</code></pre>
+<h3><a href="#smcfcs" id="smcfcs">SMCFCS</a></h3>
+<p>The last approach we will use is the substantive model compatible method. First install the package (unless you have done so before):</p>
+<pre><code>ssc install smcfcs, replace
+</code></pre>
+<p>Next we can impute the missing values using <code>smcfcs</code>. We have to tell the function what our chosen substantive model is (including the interaction) and what univariate methods to use for each partially observed covariate. To do this we manually create the interaction variable, and then use the <code>passive</code> option of <code>smcfcs</code> to tell it that this variable should be deterministically updated using the <code>waist_circum</code> and <code>ALQ150</code> variables:</p>
+<pre><code>mi extract 0, clear
+mi set flong
+set seed 34412
+gen waistALQ = waist_circum*ALQ150
+smcfcs reg sbp i.gender age i.ethnicity waist_circum weight total_chol hdl /*
+*/  ALQ150 waistALQ, /*
+*/ reg(sbp waist_circum weight total_chol hdl) logit(ALQ150) /*
+*/ passive(waistALQ = waist_circum*ALQ150) m(10)
+</code></pre>
+<p>Now re-fit the substantive model of interest, and compare all the estimates:</p>
+<pre><code>mi estimate, post: reg sbp i.gender age i.ethnicity waist_circum weight /*
+*/ total_chol hdl i.ALQ150 c.waist_circum#i.ALQ150
+est store smcfcs
+est table CCA MIimpTransform MIpassive smcfcs
+</code></pre>
+<p><strong>Compare the estimates to those obtained earlier, in particular those involving <code>waist_circum</code> and <code>ALQ150</code>.</strong></p>
+<p>For further discussion of approaches to handling so called derived variables, see Section 6.4 of <a href="https://stefvanbuuren.name/fimd/sec-knowledge.html">van Buuren&rsquo;s MI book</a>.</p>
+<h2><a href="#cox-proportional-hazards-substantive-model" id="cox-proportional-hazards-substantive-model">Cox proportional hazards substantive model</a></h2>
+<p>In the final part of the practical we will illustrate <code>smcfcs</code> capability for imputing missing covariates when the substantive model is a Cox proportional hazards model. We will fit a model for all-cause mortality with the 1999-2000 survey variables as covariates:</p>
+<pre><code>use &quot;nhanesMort.dta&quot;, clear
+stset tMonths, failure(dead)
+stcox i.gender age i.ethnicity sbp waist_circum weight total_chol hdl i.ALQ150
+est store CCA
+</code></pre>
+<p>Next we impute the missing covariates values using <code>smcfcs</code>, specifying our new substantive model as the Cox model just fitted:</p>
+<pre><code>set seed 7233
+smcfcs stcox gender age i.ethnicity sbp waist_circum weight total_chol hdl ALQ150, /*
+*/ reg(sbp waist_circum weight total_chol hdl) logit(ALQ150)
+</code></pre>
+<p>Lastly, we fit the Cox model to the imputed datasets, pool the results, and compare to the CCA results:</p>
+<pre><code>mi estimate, post: stcox i.gender age i.ethnicity sbp waist_circum weight /*
+*/ total_chol hdl i.ALQ150
+est store smcfcs
+est table CCA smcfcs, se
+</code></pre>
+<p><strong>How do the estimates and standard errors compare between CCA and after imputation using <code>smcfcs</code>?</strong></p>

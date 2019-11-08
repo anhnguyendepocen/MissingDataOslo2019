@@ -1,0 +1,95 @@
+# Practical 2
+
+## Introduction
+In this practical you will perform analyses of a real dataset to explore and develop your understanding of missing data mechanisms, the conditions under which complete case analyses are valid, and multiple imputation of a single variable with missing values.
+
+The practical will use data from the 1999-2000 National Health and Nutrition Examination Survey (NHANES) conducted in the the USA. The dataset we will use contains a small subset of the many variables collected at this survey. It has also been linked to mortality data, so that we have follow-up for mortality from the survey at 1999-2000 through to around 2015. The survey was conducted using complex survey sampling techniques, which for the purposes of these illustrative practicals we will ignore.
+
+Load the dataset and summarize its contents. Click on Browse to look at the dataset.
+
+~~~~
+use nhanesMort.dta, clear
+summ
+~~~~
+
+The data summary shows that quite a few of the variables collected at the survey have some missing data. There are no missing values in the mortality status variable `dead` nor the corresponding time to death/censoring, `tMonths`.
+
+## Alcohol consumption
+The first analysis of the NHANES data we will consider is a marginal analysis of the alcohol variable `ALQ150` we have, which is the respondent's answer to the question 'Was there ever a time or times in your life when you drank 5 or more drinks of any kind of alcoholic beverage almost every day?'. Since this variable is binary (yes/no), this analysis aims to simply estimate the proportion whose answer to this question is yes. The data summary earlier showed that of the `r dim(nhanesMort)[1]` observations in the dataset, `r sum(is.na(nhanesMort$ALQ150))` are missing this variable.
+
+### Complete case analysis
+First perform a complete case analysis:
+~~~~
+proportion ALQ150
+~~~~
+
+**Next, perform a logistic regression analysis to see whether and how missingness in `ALQ150` is associated with age, ethnicity, and gender. What do you conclude about the missingness mechanism for `ALQ150`?**
+
+~~~~
+gen rALQ=1*(ALQ150!=.)
+logistic rALQ age i.ethnicity i.gender
+~~~~
+
+To further help judge whether the complete case analysis is likely to be biased, and if so, how, perform an analysis to investigate how the probability of saying Yes to the `ALQ150` question is associated with the covariates age, ethnicity, gender and weight.
+
+~~~~
+logistic ALQ150 age i.ethnicity i.gender
+~~~~
+
+**Given the results of your analyses, do you think the complete case proportion of Yes estimated earlier is unbiased, biased upwards, or biased downwards?**
+
+### Multiple imputation
+We will now use multiple imputation to impute the missing `ALQ150` values assuming they are MAR given age, ethnicity and gender. In the next practical we will see how we can exploit the other partially observed variables in the imputation process.
+
+The first step to MI in Stata is to tell Stata what type of format to store the later imputed datasets. Essentially you can store them in wide or long form. Here we will use the wide form. This means that each imputation of `ALQ150` will be stored as an additional variable/column.
+~~~~
+mi set wide
+~~~~
+
+Next we have to register the variables which we are going to impute. Here this is just `ALQ150`:
+~~~~
+mi register imputed ALQ150
+~~~~
+
+Now we are ready to impute the missing values in `ALQ150`. Since `ALQ150` is binary, we will ask Stata to impute (10 times) the missing values in it using a logistic regression model, with age, ethnicity and gender as covariates:
+~~~~
+mi impute logit ALQ150 age i.ethnicity i.gender, add(10) rseed(79324)
+~~~~
+
+Now we can analyse the imputed datasets. The majority of Stata's estimation commands are compatible with MI. If they are, to perform the MI analysis you simply prefix the command with `mi estimate:`:
+
+~~~~
+mi estimate: proportion ALQ150
+~~~~
+
+**Does the change in estimate agree with what you predicted earlier?**
+
+**Under what assumption is your MI analysis valid? Do you think this assumption is plausible, and more plausible than the assumption required for the CCA estimate to be valid?**
+
+## Analysis of mortality
+If you have time, you can consider a second substantive analysis, which we will also look at in the next practical. Our second substantive analysis will be a model for how the probability of death (all-causes) within 10 years relates to the various 'baseline' variables which were measured at the year 1999-2000 survey.
+
+First we will use the event indicator `dead` and the time variable `tMonths` to construct our binary outcome variable. Before we do this, we look at whether any individuals were censored for mortality before 10 years:
+
+~~~~  
+summ tMonths if dead==0
+~~~~
+
+This shows that the first censoring took place at 15 years follow-up. We can therefore proceed to create a binary variable for 10 year mortality without any problems with censoring:
+  
+~~~~
+gen dead10 = 1*((dead==1) & (tMonths<120))
+~~~~
+
+Next fit a complete case logistic regression model for the `dead10` variable, with `gender`, `age`, `ethnicity`, `sbp`, `waist_circum`, `weight`, `total_cholesterol_chol`, `hdl` and `ALQ150` as covariates:
+
+~~~~
+logistic dead10 i.gender age i.ethnicity sbp waist_circum weight total_chol hdl i.ALQ150
+~~~~
+
+**How many observations have been omitted due to missing data? What is the impact of this on the estimates, standard errors and confidence intervals?**
+  
+**Under what conditions would this complete case analysis be unbiased? Do you think these conditions are plausible here? Perform some data analyses to investigate.**
+
+In the next practical we will look at how MI can be applied to impute the missing values in all the variables.
+

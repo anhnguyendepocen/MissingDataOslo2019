@@ -1,0 +1,129 @@
+# Practical 4
+
+## Introduction
+In this practical we will continue analysing the NHANES 1999-2000 data, and will explore how to handle interactions in the substantive (outcome) model and survival substantive models.
+
+## Substantive model interactions
+We will explore how to handle interactions in the substantive (outcome) model by way of a new illustrative substantive model. First, re-load the data:
+
+~~~~
+use "nhanesMort.dta", clear
+~~~~
+
+Next we will fit our new substantive model: a linear regression for systolic blood pressure with the other variables measured at the 1999-2000 survey as covariates. We also include an interaction between `waist_circum` and `ALQ150`:
+
+~~~~
+reg sbp i.gender age i.ethnicity waist_circum weight total_chol hdl i.ALQ150 c.waist_circum#i.ALQ150
+est store CCA
+~~~~
+
+**Given we now have the interaction term `waist_circum:ALQ150Yes`, how should the coefficients for `waist_circum`, `ALQ150Yes` and `waist_circum:ALQ150Yes` be interpreted?**
+
+### Impute then transform
+
+We will now impute the missing values in the variables, looking at different approaches to handling the interaction term. The first approach, 'impute then transform', ignores the issue of interactions at the imputation stage, and then simply creates the interaction terms in the imputed datasets (this is the transform bit in 'impute then transform').
+
+Since our substantive model only involves variables at the time of the survey (and not the subsequent follow-up for mortality), we will now impute using only variables from the time of the survey (this is not though to say one could or should not use the mortality information):
+
+~~~~
+mi set flong
+mi register imputed sbp waist_circum weight total_chol hdl ALQ150
+mi impute chained (reg) sbp waist_circum weight total_chol hdl (logit) ALQ150, add(10) rseed(21466)
+~~~~
+
+**Now fit the substantive model, including the interaction term, to the imputed datasets, and compare the estimates to the earlier complete case estimates. In particular, how much has the coefficient for the interaction term changed?**
+
+~~~~
+mi estimate, post: reg sbp i.gender age i.ethnicity waist_circum weight /*
+*/ total_chol hdl i.ALQ150 c.waist_circum#i.ALQ150
+est store MIimpTransform
+est table CCA MIimpTransform
+~~~~
+
+### Passive imputation
+
+Next we will try an alternative approach called 'passive imputation'. In this approach we will include the interaction between `waist_circum` and `ALQ150` in the imputation model for `sbp`. This means that as the algorithm iterates, and thus new imputed values of `waist_circum` and `ALQ150` are created, the interaction term will be updated when imputing missing values in `sbp`. To do this we specify a separate `(reg)` statement for `sbp` and use the `include()` option to tell Stata to include the desired interaction term:
+
+~~~~
+mi extract 0, clear
+mi set flong
+mi register imputed sbp waist_circum weight total_chol hdl ALQ150
+mi impute chained (reg, include((waist_circum*ALQ150))) sbp /*
+*/ (reg) waist_circum weight total_chol hdl (logit) ALQ150, add(10) rseed(21466)
+~~~~
+
+**Fit the substantive model to the imputed datasets and compare the results with those obtained earlier. Check what modelling assumptions have been made by the imputation process and consider how this may impact on the validity of the final estimates.**
+
+~~~~
+mi estimate, post: reg sbp i.gender age i.ethnicity waist_circum weight /*
+*/ total_chol hdl i.ALQ150 c.waist_circum#i.ALQ150
+est store MIpassive
+est table CCA MIimpTransform MIpassive
+~~~~
+
+
+### SMCFCS
+
+The last approach we will use is the substantive model compatible method. First install the package (unless you have done so before):
+
+~~~~
+ssc install smcfcs, replace
+~~~~
+
+Next we can impute the missing values using `smcfcs`. We have to tell the function what our chosen substantive model is (including the interaction) and what univariate methods to use for each partially observed covariate. To do this we manually create the interaction variable, and then use the `passive` option of `smcfcs` to tell it that this variable should be deterministically updated using the `waist_circum` and `ALQ150` variables.
+
+Warning/note: `smcfcs` takes longer to run, and you will see some warnings about rejection sampling limit.
+
+~~~~
+mi extract 0, clear
+mi set flong
+set seed 34412
+gen waistALQ = waist_circum*ALQ150
+smcfcs reg sbp i.gender age i.ethnicity waist_circum weight total_chol hdl /*
+*/  ALQ150 waistALQ, /*
+*/ reg(sbp waist_circum weight total_chol hdl) logit(ALQ150) /*
+*/ passive(waistALQ = waist_circum*ALQ150) m(10)
+~~~~
+
+Now re-fit the substantive model of interest, and compare all the estimates:
+
+~~~~
+mi estimate, post: reg sbp i.gender age i.ethnicity waist_circum weight /*
+*/ total_chol hdl i.ALQ150 c.waist_circum#i.ALQ150
+est store smcfcs
+est table CCA MIimpTransform MIpassive smcfcs
+~~~~
+
+**Compare the estimates to those obtained earlier, in particular those involving `waist_circum` and `ALQ150`.**
+
+For further discussion of approaches to handling so called derived variables, see Section 6.4 of [van Buuren's MI book](https://stefvanbuuren.name/fimd/sec-knowledge.html). 
+
+## Cox proportional hazards substantive model
+
+In the final part of the practical we will illustrate `smcfcs` capability for imputing missing covariates when the substantive model is a Cox proportional hazards model. We will fit a model for all-cause mortality with the 1999-2000 survey variables as covariates:
+
+~~~~
+use "nhanesMort.dta", clear
+stset tMonths, failure(dead)
+stcox i.gender age i.ethnicity sbp waist_circum weight total_chol hdl i.ALQ150
+est store CCA
+~~~~
+
+Next we impute the missing covariates values using `smcfcs`, specifying our new substantive model as the Cox model just fitted:
+
+~~~~
+set seed 7233
+smcfcs stcox gender age i.ethnicity sbp waist_circum weight total_chol hdl ALQ150, /*
+*/ reg(sbp waist_circum weight total_chol hdl) logit(ALQ150)
+~~~~
+
+Lastly, we fit the Cox model to the imputed datasets, pool the results, and compare to the CCA results:
+
+~~~~
+mi estimate, post: stcox i.gender age i.ethnicity sbp waist_circum weight /*
+*/ total_chol hdl i.ALQ150
+est store smcfcs
+est table CCA smcfcs, se
+~~~~
+
+**How do the estimates and standard errors compare between CCA and after imputation using `smcfcs`?**

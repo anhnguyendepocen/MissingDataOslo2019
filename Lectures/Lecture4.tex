@@ -1,0 +1,861 @@
+\PassOptionsToPackage{unicode=true}{hyperref} % options for packages loaded elsewhere
+\PassOptionsToPackage{hyphens}{url}
+\PassOptionsToPackage{dvipsnames,svgnames*,x11names*}{xcolor}
+%
+\documentclass[ignorenonframetext,]{beamer}
+\usepackage{pgfpages}
+\setbeamertemplate{caption}[numbered]
+\setbeamertemplate{caption label separator}{: }
+\setbeamercolor{caption name}{fg=normal text.fg}
+\beamertemplatenavigationsymbolsempty
+% Prevent slide breaks in the middle of a paragraph:
+\widowpenalties 1 10000
+\raggedbottom
+\setbeamertemplate{part page}{
+\centering
+\begin{beamercolorbox}[sep=16pt,center]{part title}
+  \usebeamerfont{part title}\insertpart\par
+\end{beamercolorbox}
+}
+\setbeamertemplate{section page}{
+\centering
+\begin{beamercolorbox}[sep=12pt,center]{part title}
+  \usebeamerfont{section title}\insertsection\par
+\end{beamercolorbox}
+}
+\setbeamertemplate{subsection page}{
+\centering
+\begin{beamercolorbox}[sep=8pt,center]{part title}
+  \usebeamerfont{subsection title}\insertsubsection\par
+\end{beamercolorbox}
+}
+\AtBeginPart{
+  \frame{\partpage}
+}
+\AtBeginSection{
+  \ifbibliography
+  \else
+    \frame{\sectionpage}
+  \fi
+}
+\AtBeginSubsection{
+  \frame{\subsectionpage}
+}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provides euro and other symbols
+\else % if luatex or xelatex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage[]{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\IfFileExists{parskip.sty}{%
+\usepackage{parskip}
+}{% else
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{
+            pdftitle={Lecture 4 - MI with derived variables, survival outcomes, dependent data and survey data},
+            pdfauthor={Jonathan Bartlett (thestatsgeek.com)},
+            colorlinks=true,
+            linkcolor=blue,
+            filecolor=Maroon,
+            citecolor=Blue,
+            urlcolor=blue,
+            breaklinks=true}
+\urlstyle{same}  % don't use monospace font for urls
+\newif\ifbibliography
+\usepackage{longtable,booktabs}
+\usepackage{caption}
+% These lines are needed to make table captions work with longtable:
+\makeatletter
+\def\fnum@table{\tablename~\thetable}
+\makeatother
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{0}
+
+% set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+
+
+\title{Lecture 4 - MI with derived variables, survival outcomes, dependent data
+and survey data}
+\providecommand{\subtitle}[1]{}
+\subtitle{Multiple imputation for missing data}
+\author{\href{https://thestatsgeek.com}{Jonathan Bartlett (thestatsgeek.com)}}
+\date{Oslo, November 2019}
+
+\begin{document}
+\frame{\titlepage}
+
+\begin{frame}
+\tableofcontents[hideallsubsections]
+\end{frame}
+\hypertarget{derived-variables}{%
+\section{Derived variables}\label{derived-variables}}
+
+\begin{frame}[fragile]{Derived variables}
+\protect\hypertarget{derived-variables-1}{}
+
+\begin{itemize}
+\tightlist
+\item
+  If our substantive model of interest includes derived variables, like
+  non-linear effects and/or interactions, our imputation model should
+  respect these.
+\item
+  In the next practical, we will look at a substantive model for
+  \texttt{sbp} in NHANES which includes the interaction between
+  \texttt{waist\_circum} and \texttt{ALQ150}.
+\item
+  The imputation model should be `compatible' or congenial with the
+  substantive model (Meng \protect\hyperlink{ref-Meng:1994}{1994}).
+\item
+  e.g.~suppose our model of interest is a linear regression of \(Y\) on
+  \(X\) and \(X^2\), if we impute missing values of \(X\) using a linear
+  regression of \(X\) on \(Y\), the imputed data will not have the
+  correct quadratic relationship between \(Y\) and \(X\).
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}[fragile]{Interactions}
+\protect\hypertarget{interactions}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Suppose the outcome/substantive model contains an interaction between
+  two predictors, \(X_{1}\) and \(X_{2}\), one of which (\(X_{1}\)) is
+  categorical (e.g. \texttt{ALQ150}).
+\item
+  If \(X_{1}\) is fully observed, a convenient approach to allow for the
+  interaction is to impute separately in different levels of \(X_{1}\).
+\item
+  Stata's \texttt{mi} commands make this very easy: simply add
+  \texttt{by(x1)} at the end of the command.
+\item
+  In R, we could split the data into multiple data frames, run
+  \texttt{mice} on each, and then recombining the imputed datasets.
+\item
+  If \(X_{1}\) itself has missing values (as in \texttt{ALQ150}
+  variable), we cannot use this approach.
+\item
+  It also does not work if both \(X_{1}\) and \(X_{2}\) are continuous,
+  or we want to allow for multiple interactions.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Impute then transform}
+\protect\hypertarget{impute-then-transform}{}
+
+\begin{itemize}
+\tightlist
+\item
+  The simplest approach to handling derived variables is to perform
+  imputation as normal, then create the derived variables
+  (e.g.~interactions) in the imputed datasets.
+\item
+  This is not a good idea.
+\item
+  The imputation models will not be compatible with what the substantive
+  model.
+\item
+  Biased estimates will be obtained.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}[fragile]{Passive imputation}
+\protect\hypertarget{passive-imputation}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Passive imputation involves adding the derived variable(s) to the data
+  frame and updating its value during the imputation process.
+\item
+  e.g.~we can add a variable \texttt{waist\_circum*AQL150} and tell
+  \texttt{mice} how to update its value.
+\item
+  This interaction term can be used as a covariate in the imputation
+  models.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}[fragile]{Limitations of passive imputation}
+\protect\hypertarget{limitations-of-passive-imputation}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Passive imputation has limitations - it is not always obvious how to
+  specify imputation models which are compatible with the substantive
+  model.
+\item
+  e.g.~when imputing \texttt{ALQ150}, we need to ensure its imputation
+  model is compatible with the presence of an interaction between it and
+  \texttt{waist\_circum} in the model for \texttt{sbp}.
+\item
+  Used naively it will usually lead to biased estimates.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}[fragile]{`Just another variable' approach}
+\protect\hypertarget{just-another-variable-approach}{}
+
+\begin{itemize}
+\tightlist
+\item
+  The `transform then impute' or `just another variable' (JAV) approach
+  recently proposed by von Hippel (Hippel
+  \protect\hyperlink{ref-Hippel2009}{2009}) involves treating derived
+  variables as if they were just any other variables and includes them
+  in the imputation process.
+\item
+  e.g.~we include \texttt{waist\_circum*AQL150} in the imputation
+  process and impute it as if it were a regular continuous variable, and
+  ignore the deterministic relationship between it and
+  \texttt{waist\_circum} and \texttt{ALQ150}.
+\item
+  An unappealing feature of this is that we have imputed values of
+  \texttt{waist\_circum*AQL150} which are not equal to the product of
+  the values of \texttt{waist\_circum} and \texttt{ALQ150}.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Statistical properties of the `just another variable'
+approach}
+\protect\hypertarget{statistical-properties-of-the-just-another-variable-approach}{}
+
+\begin{itemize}
+\tightlist
+\item
+  For linear models where data are MCAR, the JAV approach gives
+  consistent point estimates, but Rubin's rules may not be valid.
+\item
+  With data MAR, JAV gives biased estimates, since it consists of
+  fitting a mis-specified parametric model by maximum likelihood.
+\item
+  For logistic regression models JAV can be badly biased.
+\item
+  For more on this, see (S. R. Seaman, Bartlett, and White
+  \protect\hyperlink{ref-Seaman2012}{2012}).
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Substantive model compatible FCS (SMC-FCS)}
+\protect\hypertarget{substantive-model-compatible-fcs-smc-fcs}{}
+
+\begin{itemize}
+\tightlist
+\item
+  We developed a modified version of MICE/FCS, which imputes each
+  covariate compatibly with a user-specified substantive model (SM)
+  (Bartlett et al. \protect\hyperlink{ref-Bartlett2014}{2015}).
+\item
+  Suppose we have an outcome of interest \(Y\), partially observed
+  covariates \(X_{1},X_{2},..,X_{p}\), and fully observed covariates
+  \(\mathbf Z\).
+\item
+  We specify a substantive model (SM) for
+  \(f(Y|X_{1},..,X_{p},\mathbf Z,\psi)\), with parameters \(\psi\).
+\item
+  e.g.~linear regression of \(Y\), with covariate vector some function
+  of \(X_{1},..,X_{p}\) and \(\mathbf Z\).
+\item
+  e.g.~covariates include \(X_{1} \times X_{2}\), or \(X_{1}^2\), or
+  \(X_{1}/X_{2}^2\)\ldots{}
+\item
+  The covariates \(X_{1},..,X_{p}\) have missing values.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Substantive model compatible FCS}
+\protect\hypertarget{substantive-model-compatible-fcs}{}
+
+\begin{itemize}
+\tightlist
+\item
+  We must impute from a model for \(f(X_{j}|X_{-j},\mathbf Z,Y)\).
+\item
+  This can be expressed as \begin{align*}
+    \frac{f(Y|X_{j},X_{-j},\mathbf Z)f(X_{j}|X_{-j},\mathbf Z)}{\int f(Y|X^{*}_{j},X_{-j},\mathbf Z) f(X^{*}_{j}|X_{-j},\mathbf Z) dX^{*}_{j}}.
+    \end{align*}
+\item
+  The SM is a model for \(f(Y|X_{j},X_{-j},\mathbf Z)\).
+\item
+  We can thus specify an IM for \(X_{j}\) which is compatible with the
+  SM by additionally specifying a model for
+  \(f(X_{j}|X_{-j},\mathbf Z)\).
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Drawing imputations}
+\protect\hypertarget{drawing-imputations}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Having specified a model for \(f(X_{j}|X_{-j},\mathbf Z)\), the
+  implied imputation model \(f(X_{j}|X_{-j},\mathbf Z,Y)\) will in
+  general not belong to a standard distributional family.
+\item
+  We appeal to the Monte-Carlo method of rejection sampling to generate
+  draws.
+\item
+  Rejection sampling involves drawing from an easy-to-sample (candidate)
+  distribution until a particular criterion/bound is satisfied.
+\item
+  Deriving this bound is relatively easy if we use our model for
+  \(f(X_{j}|X_{-j},\mathbf Z)\) as the candidate distribution.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}[fragile]{\texttt{smcfcs}}
+\protect\hypertarget{smcfcs}{}
+
+\begin{itemize}
+\tightlist
+\item
+  \href{https://cran.r-project.org/package=smcfcs}{\texttt{smcfcs}}
+  implements the SMC-FCS approach in R.
+  \href{https://github.com/jwb133/Stata-smcfcs}{\texttt{smcfcs}} in
+  Stata.
+\item
+  Linear, logistic and Cox proportional hazards outcome models are
+  supported.
+\item
+  It also supports competing risks outcomes, and nested case-control and
+  case-cohort studies.
+\item
+  Normal linear, logistic, Poisson, proportional odds and multinomial
+  logistic imputation methods are provided.
+\item
+  The SM can contain essentially any function of the variables,
+  e.g.~squares, cubes, interactions, logarithms of variables, etc etc.
+\item
+  The approach can also be used when imputing components of a ratio
+  variable, e.g.~BMI.
+\item
+  In the practical we will see how \texttt{smcfcs} can be used to
+  accommodate an interaction, and be used to impute missing covariates
+  in a Cox model analysis.
+\end{itemize}
+
+\end{frame}
+
+\hypertarget{survival-outcomes}{%
+\section{Survival outcomes}\label{survival-outcomes}}
+
+\begin{frame}{Incorporating the outcome in imputation}
+\protect\hypertarget{incorporating-the-outcome-in-imputation}{}
+
+\begin{itemize}
+\tightlist
+\item
+  As we noted earlier, the outcome variable in the final model of
+  interest \emph{must} be included in the imputation model.
+\item
+  If we do not, imputed values will not have the correct associations
+  with the outcome.
+\item
+  How to incorporate the outcome in an imputation model depends on the
+  type of variable being imputed and the type of outcome / outcome
+  model.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Survival outcomes}
+\protect\hypertarget{survival-outcomes-1}{}
+
+\begin{itemize}
+\tightlist
+\item
+  A common outcome type is time to some event of interest (often called
+  survival outcomes).
+\item
+  Sometimes we do not observe the event occurring for every subject in
+  the available follow-up, leading to censoring.
+\item
+  The outcome then consists of a variable \(T\) representing time to the
+  event of interest and an event indicator \(D\) (\(D=1\) if event
+  occured, \(D=0\) otherwise).
+\item
+  If \(D=0\), \(T\) records the censoring time -- the last time at which
+  a subject was seen, and had still not had the event.
+\item
+  If we have some missing values in the covariates \(X\) in our survival
+  model, how should we impute them?
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Incorporating survival outcomes in imputation models}
+\protect\hypertarget{incorporating-survival-outcomes-in-imputation-models}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Early recommendations were to impute \(X\) by putting \(T\) (or
+  \(\log(T)\) and \(D\) as covariates).
+\item
+  More recently, White and Royston
+  (\protect\hyperlink{ref-White2009}{2009}) investigated theoretically
+  how the imputation model for \(X\) should be specified when a Cox
+  proportinal hazards model is used:\\
+  \begin{align}
+    h(t|\mathbf X) = h_{0}(t) \exp(\boldsymbol \beta^{T} \mathbf X)
+  \end{align} where \(h_{0}(t)\) denotes an arbitrary baseline hazard
+  function and \(\boldsymbol \beta\) a vector of (log) hazard ratios.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Incorporating survival outcomes in imputation models}
+\protect\hypertarget{incorporating-survival-outcomes-in-imputation-models-1}{}
+
+\begin{itemize}
+\tightlist
+\item
+  White and Royston showed that when imputing a normally distributed
+  variable \(X\) one should use a linear regression imputation model,
+  with \(D\) and \(H_{0}(T) = \int^{T}_{0} h_{0}(u) du\) (baseline
+  cumulative hazard function) as covariates.
+\item
+  For binary \(X\), one should use a logistic regression imputation
+  model, again with \(D\) and \(H_{0}(T)\) as covariates.
+\item
+  Their results are exact for binary \(X\), but are approximate for
+  normal \(X\).
+\item
+  The approximation for normal \(X\) should work well provided the
+  covariate \(X\) does not have a large effect on hazard or if the
+  incidence of the event of interest is low.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Incorporating survival outcomes in imputation models}
+\protect\hypertarget{incorporating-survival-outcomes-in-imputation-models-2}{}
+
+\begin{itemize}
+\item
+  \(H_{0}(t)=\int^{t}_{0} h_{0}(u) du\) is the baseline cumulative
+  hazard function.
+\item
+  White and Royston suggest a number of approaches to estimating
+  \(H_{0}(t)\):
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Substantive knowledge - e.g.~it may be reasonable to assume constant
+    baseline hazard so that \(H_{0}(t) \propto t\). In this case, we
+    just include \(D\) and \(T\) as covariates in our imputation
+    model(s).
+
+    \begin{itemize}
+    \tightlist
+    \item
+      When covariate effects are small, one could approximate
+      \(H_{0}(t)\) by the Nelson-Aalen (marginal) cumulative hazard
+      estimator \(H(t)\), which ignores covariates and thus can be
+      estimated using all subjects.
+    \item
+      Estimating \(H_{0}(t)\) within the FCS algorithm by fitting the
+      Cox proportional hazards model to the current imputed dataset.
+    \end{itemize}
+  \end{itemize}
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Substantive model compatible FCS}
+\protect\hypertarget{substantive-model-compatible-fcs-1}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Our SMC-FCS approach can also `solve' the problem.
+\item
+  Each partially observed covariate is imputed compatibly with the
+  specified Cox model.
+\item
+  Our approach is particularly attractive if there are additionally
+  interactions or non-linear covariate effects in the Cox model.
+\item
+  If censoring mechanism is related to partially observed covariate(s),
+  then censoring should be treated as a competing risk at the imputation
+  stage.
+\end{itemize}
+
+\end{frame}
+
+\hypertarget{imputation-with-dependent-data}{%
+\section{Imputation with dependent
+data}\label{imputation-with-dependent-data}}
+
+\begin{frame}{Example - longitudinal data}
+\protect\hypertarget{example---longitudinal-data}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Suppose some quantity \(y\) was intended to be measured repeatedly on
+  subjects over time.
+\item
+  There are some missing values of \(y\).
+\item
+  How should we impute these missing values?
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Imputing in `long form'}
+\protect\hypertarget{imputing-in-long-form}{}
+
+\begin{longtable}[]{@{}llll@{}}
+\toprule
+id & gender & time & y\tabularnewline
+\midrule
+\endhead
+1 & m & 0 & 4.5\tabularnewline
+1 & m & 1 & 3.9\tabularnewline
+1 & m & 2 & 4.1\tabularnewline
+1 & m & 3 & .\tabularnewline
+1 & m & 4 & 4.2\tabularnewline
+\bottomrule
+\end{longtable}
+
+\begin{itemize}
+\tightlist
+\item
+  If we impute the dataset is `long' form, we treat each observation as
+  independent.
+\item
+  This is clearly inappropriate - observations from the same subject are
+  usually correlated.
+\item
+  The observed values of \(y\) on a subject contain information about
+  missing \(y\) at \(t=3\).
+\item
+  If we ignore the longitudinal structure, imputations will not only be
+  inefficient, they will not have the correct correlation structure.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}[fragile]{Imputing in `wide form'}
+\protect\hypertarget{imputing-in-wide-form}{}
+
+\begin{longtable}[]{@{}lllllll@{}}
+\toprule
+id & gender & y0 & y1 & y2 & y3 & y4\tabularnewline
+\midrule
+\endhead
+1 & m & 4.5 & 3.9 & 4.1 & . & 4.2\tabularnewline
+\bottomrule
+\end{longtable}
+
+\begin{itemize}
+\tightlist
+\item
+  If measurement times are common to all subjects, we may be able to
+  impute with the data in `wide' form.
+\item
+  e.g.~we could apply \texttt{mice} to gender, y0, y1, y2, y3, y4.
+\item
+  This uses available longitudinal information to impute missing value
+  at \(t=3\) for \(\mbox{id}=1\).
+\item
+  Note that this strategy generally cannot be applied if observations
+  take place at different times for different subjects.
+\item
+  You may run into co-linearity issues when \(y\) is highly correlated
+  within subjects over time.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Example - clustered data}
+\protect\hypertarget{example---clustered-data}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Another form of dependent data is clustered of multi-level data.
+\item
+  The clustering should be accounted for in the imputation process.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Including fixed cluster effects}
+\protect\hypertarget{including-fixed-cluster-effects}{}
+
+\begin{itemize}
+\tightlist
+\item
+  One approach is to include cluster id as a fixed effect covariate in
+  imputation models.
+\item
+  Standard MI software can be used.
+\item
+  If each cluster has a large number of (observed) units, this could
+  work well.
+\item
+  But if the substantive model is a random effects model, it has been
+  shown to lead to invalid inferences (Andridge
+  \protect\hyperlink{ref-Andridge2011}{2011}).
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Imputation by cluster}
+\protect\hypertarget{imputation-by-cluster}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Yet another approach is to impute separately in each cluster, thus
+  allowing parameters to vary by cluster.
+\item
+  This should work well when there are a small number of large clusters.
+\item
+  An advantage of this approach is that it allows all the imputation
+  model parameters to differ between clusters.
+\item
+  Conversely, a disadvantage is that information is not borrowed between
+  clusters.
+\item
+  If there are many clusters, and/or clusters are small, imputation by
+  cluster may perform poorly.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Random-effects imputation}
+\protect\hypertarget{random-effects-imputation}{}
+
+\begin{itemize}
+\tightlist
+\item
+  If your substantive analyses would treat the dependency in the data
+  through random effects, you should probably impute mising data using
+  random effects models.
+\item
+  The principles of MI remain the same - all that changes is that we
+  have random effects in our imputation model(s).
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}[fragile]{Random-effects imputation software}
+\protect\hypertarget{random-effects-imputation-software}{}
+
+\begin{itemize}
+\tightlist
+\item
+  \href{https://cran.r-project.org/package=mice}{\texttt{mice}} can
+  impute variables using FCS with certain random effects models.
+\item
+  \href{https://cran.r-project.org/package=jomo}{\texttt{jomo}} can
+  impute using joint random effects models based on latent multivariate
+  normal structure.
+\item
+  \href{https://cran.r-project.org/package=JointAI}{\texttt{jointAI}}
+  can impute using joint random effects models based on factorising the
+  joint distribution as a product of conditionals.
+\item
+  For further details, see Buuren
+  (\protect\hyperlink{ref-vanBuuren2011}{2011}) and Audigier et al.
+  (\protect\hyperlink{ref-audigier2018multiple}{2018}).
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Likelihood based approaches}
+\protect\hypertarget{likelihood-based-approaches}{}
+
+\begin{itemize}
+\tightlist
+\item
+  If missingness is confined to the outcome variable, likelihood based
+  approaches are statistically efficient and valid under MAR.
+\item
+  In such cases, there is little point in trying to attempt imputation.
+\item
+  This is the case for both dependent data situations and simpler
+  independent data situations.
+\end{itemize}
+
+\end{frame}
+
+\hypertarget{survey-data}{%
+\section{Survey data}\label{survey-data}}
+
+\begin{frame}{MI with survey data}
+\protect\hypertarget{mi-with-survey-data}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Rubin's original aim was for MI to be used in the context of large
+  survey datasets.
+\item
+  However, it is not clear how `proper' imputations can be generated
+  when data were collected using a complex survey design.
+\item
+  S. R. Seaman et al. (\protect\hyperlink{ref-Seaman2012a}{2012})
+  derived some important results concerning this.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Recommendations for MI with survey data}
+\protect\hypertarget{recommendations-for-mi-with-survey-data}{}
+
+Seaman et al's results imply that when performing MI with weighted
+survey data we should:
+
+\begin{enumerate}
+\tightlist
+\item
+  include the sample design weights as a covariate (not as a weight!) in
+  the imputation model(s),
+\item
+  when analysing the imputed datasets, the completed data analyses
+  should be weighted using the survey design weights.
+\end{enumerate}
+
+\end{frame}
+
+\begin{frame}{Variance estimation}
+\protect\hypertarget{variance-estimation}{}
+
+\begin{itemize}
+\tightlist
+\item
+  One issue is that Rubin's variance estimator can be biased upwards
+  (conservative inference) if the imputer makes an assumption which the
+  analyst doesn't.
+\item
+  In simple settings, Seaman et al showed that the upward bias in
+  variance estimates could be avoided by including interactions between
+  weights and fully observed variables.
+\item
+  Even when Rubin's variance estimator was biased (upwards), Seaman et
+  al found that the bias was small.
+\item
+  In practice therefore, we might worry less about this issue.
+\end{itemize}
+
+\end{frame}
+
+\hypertarget{summary}{%
+\section{Summary}\label{summary}}
+
+\begin{frame}{Summary}
+\protect\hypertarget{summary-1}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Care must be taken that variables are imputed compatibly/congenially
+  with subsequent analyses (substantive models).
+\item
+  In particular, imputing derievd variables involved in interactions or
+  non-linear effects requires care.
+\item
+  e.g.~with a Cox model, we must account for the outcome appropriately
+  if imputing covariates.
+\item
+  e.g.~with dependent data, our imputation model should ideally account
+  for the dependency.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}[allowframebreaks]{References}
+\protect\hypertarget{references}{}
+
+\hypertarget{refs}{}
+\leavevmode\hypertarget{ref-Andridge2011}{}%
+Andridge, Rebecca R. 2011. ``Quantifying the Impact of Fixed Effects
+Modeling of Clusters in Multiple Imputation for Cluster Randomized
+Trials.'' \emph{Biometrical Journal} 53 (1). Wiley Online Library:
+57--74.
+
+\leavevmode\hypertarget{ref-audigier2018multiple}{}%
+Audigier, Vincent, Ian R White, Shahab Jolani, Thomas PA Debray, Matteo
+Quartagno, James Carpenter, Stef Van Buuren, Matthieu Resche-Rigon, and
+others. 2018. ``Multiple Imputation for Multilevel Data with Continuous
+and Binary Variables.'' \emph{Statistical Science} 33 (2). Institute of
+Mathematical Statistics: 160--83.
+
+\leavevmode\hypertarget{ref-Bartlett2014}{}%
+Bartlett, J W, S R Seaman, I R White, and J R Carpenter. 2015.
+``Multiple imputation of covariates by fully conditional specification:
+Accommodating the substantive model.'' \emph{Statistical Methods in
+Medical Research} 24 (4): 462--87.
+\url{https://doi.org/10.1177/0962280214521348}.
+
+\leavevmode\hypertarget{ref-vanBuuren2011}{}%
+Buuren, S van. 2011. ``Multiple Imputation of Multilevel Data.'' In
+\emph{The Handbook of Advanced Multilevel Analysis}, 173--96. Routledge.
+
+\leavevmode\hypertarget{ref-Hippel2009}{}%
+Hippel, P T von. 2009. ``How to Impute Interactions, Squares, and Other
+Transformed Variables.'' \emph{Sociological Methodology} 39: 265--91.
+
+\leavevmode\hypertarget{ref-Meng:1994}{}%
+Meng, X L. 1994. ``Multiple-Imputation Inferences with Uncongenial
+Sources of Input (with Discussion).'' \emph{Statistical Science} 10:
+538--73.
+
+\leavevmode\hypertarget{ref-Seaman2012}{}%
+Seaman, S. R., J. W. Bartlett, and I. R. White. 2012. ``Multiple
+imputation of missing covariates with non-linear effects and
+interactions: an evaluation of statistical methods.'' \emph{BMC Medical
+Research Methodology} 12: 46.
+
+\leavevmode\hypertarget{ref-Seaman2012a}{}%
+Seaman, S. R., I. R. White, A. J. Copas, and L. Li. 2012. ``Combining
+Multiple Imputation and Inverse-Probability Weighting.''
+\emph{Biometrics} 68: 129--37.
+
+\leavevmode\hypertarget{ref-White2009}{}%
+White, I. R., and P. Royston. 2009. ``Imputing missing covariate values
+for the Cox model.'' \emph{Statistics in Medicine} 28: 1982--98.
+
+\end{frame}
+
+\end{document}

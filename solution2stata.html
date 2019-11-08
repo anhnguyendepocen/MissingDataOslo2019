@@ -1,0 +1,274 @@
+<h1><a href="#practical-2-solutions" id="practical-2-solutions">Practical 2 solutions</a></h1>
+<pre><code>. use nhanesMort.dta, clear
+(Written by R.              )
+
+. summ
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+      gender |      4,441    1.533438    .4989368          1          2
+         age |      4,441    49.89237    18.84683         20         85
+   ethnicity |      4,441    2.652556    1.158099          1          5
+         sbp |      4,285    126.9708    21.58218         73        233
+waist_circum |      4,274    96.73322    15.08259       58.5      173.4
+-------------+---------------------------------------------------------
+      weight |      4,384     78.8211    19.52711       25.6      193.3
+  total_chol |      4,115    205.2049    41.55204         72        480
+         hdl |      4,114    51.16018    15.57882          8        138
+      ALQ150 |      3,511    .1885503    .3912067          0          1
+        dead |      4,441    .2625535    .4400713          0          1
+-------------+---------------------------------------------------------
+     tMonths |      4,441    166.2137    49.27175          1        201
+
+</code></pre>
+<h1><a href="#alcohol-consumption" id="alcohol-consumption">Alcohol consumption</a></h1>
+<h2><a href="#complete-case-analysis" id="complete-case-analysis">Complete case analysis</a></h2>
+<pre><code>. proportion ALQ150
+
+Proportion estimation             Number of obs   =      3,511
+
+--------------------------------------------------------------
+             |                                   Logit
+             | Proportion   Std. Err.     [95% Conf. Interval]
+-------------+------------------------------------------------
+      ALQ150 |
+          0  |   .8114497   .0066013      .7981649    .8240529
+          1  |   .1885503   .0066013      .1759471    .2018351
+--------------------------------------------------------------
+
+</code></pre>
+<p><strong>Next, perform a logistic regression analysis to see whether and how missingness in <code>ALQ150</code> is associated with age, ethnicity, and gender. What do you conclude about the missingness mechanism for <code>ALQ150</code>?</strong></p>
+<p>To fit a logistic regression model for missingness of <code>ALQ150</code> we will use <code>is.na(nhanesMort$ALQ150)</code> as our dependent variable. Thus &lsquo;success&rsquo; in the logistic regression will correspond to <code>ALQ150</code> being missing.</p>
+<pre><code>. gen rALQ=1*(ALQ150!=.)
+
+. logistic rALQ age i.ethnicity i.gender
+
+Logistic regression                             Number of obs     =      4,441
+                                                LR chi2(6)        =     274.10
+                                                Prob &gt; chi2       =     0.0000
+Log likelihood = -2141.9684                     Pseudo R2         =     0.0601
+
+-------------------------------------------------------------------------------
+         rALQ | Odds Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
+--------------+----------------------------------------------------------------
+          age |   .9920572    .002028    -3.90   0.000     .9880902      .99604
+              |
+    ethnicity |
+Other Hisp..  |   1.260406   .2066849     1.41   0.158     .9139617    1.738172
+Non-Hispan..  |   1.803683   .1696688     6.27   0.000     1.499994    2.168858
+Non-Hispan..  |   .9244028   .0978583    -0.74   0.458      .751194     1.13755
+  Other Race  |   .7230206   .1449631    -1.62   0.106     .4880763    1.071059
+              |
+       gender |
+      Female  |   .3284302   .0270659   -13.51   0.000     .2794446    .3860027
+        _cons |   8.916456   1.213813    16.07   0.000     6.828365    11.64308
+-------------------------------------------------------------------------------
+Note: _cons estimates baseline odds.
+
+</code></pre>
+<p>The logistic regression model shows that the chance of <code>ALQ150</code> being missing is higher with increased age and being female. Non-Hispanic Whites are less likely than the reference ethnic group Mexican American to have <code>ALQ150</code> missing. The p-values of these coefficients are very small - so we can confidently reject <code>ALQ150</code> being MCAR. We cannot however distinguish between MAR and MNAR.</p>
+<p><strong>To help judge whether the complete case analysis is likely to be biased, and if so, how, perform an analysis to investigate how the probability of saying Yes to the <code>ALQ150</code> question is associated with the covariates age, ethnicity, gender and weight. Given the results of your analyses, do you think the complete case proportion of Yes estimated earlier is unbiased, biased upwards, or biased downwards?</strong></p>
+<pre><code>. logistic ALQ150 age i.ethnicity i.gender
+
+Logistic regression                             Number of obs     =      3,511
+                                                LR chi2(6)        =     244.44
+                                                Prob &gt; chi2       =     0.0000
+Log likelihood = -1577.5065                     Pseudo R2         =     0.0719
+
+-------------------------------------------------------------------------------
+       ALQ150 | Odds Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
+--------------+----------------------------------------------------------------
+          age |   1.009471   .0024918     3.82   0.000     1.004599    1.014367
+              |
+    ethnicity |
+Other Hisp..  |   1.125227   .2161281     0.61   0.539     .7722282    1.639589
+Non-Hispan..  |   .7527392    .082406    -2.59   0.009     .6073785    .9328884
+Non-Hispan..  |   1.094731   .1448776     0.68   0.494      .844615    1.418914
+  Other Race  |   .7916074   .2271886    -0.81   0.415     .4510431    1.389318
+              |
+       gender |
+      Female  |   .2562519    .025753   -13.55   0.000     .2104372    .3120411
+        _cons |   .2678461   .0407586    -8.66   0.000     .1987726    .3609226
+-------------------------------------------------------------------------------
+Note: _cons estimates baseline odds.
+
+</code></pre>
+<p>The first thing to note is that this analysis is itself a complete case analysis. From the results from the lecture, we know that it will be valid if the probability of being a complete case, which here corresponds to having <code>ALQ150</code> observed, is independent of the outcome variable (<code>ALQ150</code>), conditional on the covariates (<code>age</code>, <code>ethnicity</code>, <code>gender</code>). The results suggest that you are more likely to answer Yes to <code>ALQ150</code> if you are older. Being non-Hispanic White (rather than Mexican American) and/or female is associated with a lower chance of answering Yes to <code>ALQ150</code>.</p>
+<p>Our analysis of interest here is the simple marginal proportion of Yes to <code>ALQ150</code>. The complete case analysis for this marginal analysis is only unbiased if missingness is completely at random. We have strong evidence against MCAR, and the data suggest (not surprisingly perhaps) that age, ethnicity and gender are related to <code>ALQ150</code>. It is thus reasonable to conclude that the CCA proportion of Yes in <code>ALQ150</code> is not unbiased.</p>
+<p>The direction of the bias is difficult to predict without more analyses. Older people are more likely to be missing <code>ALQ150</code>, and are more likely to be Yes on <code>ALQ150</code> (assuming the preceding CCA regression can be trusted), implying the CCA proportion of Yes would be biased downwards. Women are more likely to be missing <code>ALQ150</code>, and are less likely to be Yes, which would mean the CCA proportion of Yes is biased upwards. Conversely, Non-Hispanic Whites are less likely to be missing and less likely to be Yes, suggesting the CCA proportion of Yes is biased downwards.</p>
+<h2><a href="#multiple-imputation" id="multiple-imputation">Multiple imputation</a></h2>
+<pre><code>. mi set wide
+
+. mi register imputed ALQ150
+
+. mi impute logit ALQ150 age i.ethnicity i.gender, add(10) rseed(79324)
+
+Univariate imputation                       Imputations =       10
+Logistic regression                               added =       10
+Imputed: m=1 through m=10                       updated =        0
+
+------------------------------------------------------------------
+                   |               Observations per m             
+                   |----------------------------------------------
+          Variable |   Complete   Incomplete   Imputed |     Total
+-------------------+-----------------------------------+----------
+            ALQ150 |       3511          930       930 |      4441
+------------------------------------------------------------------
+(complete + incomplete = total; imputed is the minimum across m
+ of the number of filled-in observations.)
+
+. mi estimate: proportion ALQ150
+
+Multiple-imputation estimates     Imputations     =         10
+Proportion estimation             Number of obs   =      4,441
+                                  Average RVI     =     0.2898
+                                  Largest FMI     =     0.2333
+                                  Complete DF     =       4440
+DF adjustment:   Small sample     DF:     min     =     169.50
+                                          avg     =     169.50
+Within VCE type:     Analytic             max     =     169.50
+
+--------------------------------------------------------------
+             |                                   Normal
+             | Proportion   Std. Err.     [95% Conf. Interval]
+-------------+------------------------------------------------
+      ALQ150 |
+          0  |   .8197028   .0065513        .80677    .8326355
+          1  |   .1802972   .0065513      .1673645      .19323
+--------------------------------------------------------------
+
+</code></pre>
+<p><strong>Does the change in estimate agree with what you predicted earlier?</strong></p>
+<p>We see that the estimated proportion has decreased slightly. The direction and magnitude of the change from CCA to MI analysis was difficult to predict, given the multiple associations we saw earlier between missingness in <code>ALQ150</code> and the variables we have used in the imputation model and the relationship between <code>ALQ150</code> itself and these variables.</p>
+<p><strong>Under what assumption is your MI analysis valid? Do you think this assumption is plausible, and more plausible than the assumption required for the CCA estimate to be valid?</strong></p>
+<p>The MI analysis is valid provided that the missing values in <code>ALQ150</code> are MAR conditional on the covariates used in the imputation model, which were age, ethnicity and gender. It is impossible from the data to say whether this assumption is true, or instead the probability of missingness in <code>ALQ150</code> depends on the Yes/No value even after adjusting for age, ethnicity and gender. The MAR assumption is however much more plausible than the MCAR assumption, which we have strong evidence to reject from our earlier logistic regression analysis of missingness in <code>ALQ150</code>.</p>
+<h1><a href="#analysis-of-mortality" id="analysis-of-mortality">Analysis of mortality</a></h1>
+<pre><code>. summ tMonths if dead==0
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+     tMonths |      3,275     190.716    5.996382        180        201
+
+. gen dead10 = 1*((dead==1) &amp; (tMonths&lt;120))
+
+. logistic dead10 i.gender age i.ethnicity sbp waist_circum weight total_chol hd
+&gt; l i.ALQ150
+
+Logistic regression                             Number of obs     =      3,207
+                                                LR chi2(12)       =     812.51
+                                                Prob &gt; chi2       =     0.0000
+Log likelihood = -926.52636                     Pseudo R2         =     0.3048
+
+-------------------------------------------------------------------------------
+       dead10 | Odds Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
+--------------+----------------------------------------------------------------
+       gender |
+      Female  |   .5566595   .0774084    -4.21   0.000     .4238602    .7310661
+          age |   1.087264   .0059164    15.38   0.000      1.07573    1.098922
+              |
+    ethnicity |
+Other Hisp..  |   .7688017   .2195072    -0.92   0.357     .4393194     1.34539
+Non-Hispan..  |   .9153538   .1386723    -0.58   0.559     .6801983    1.231806
+Non-Hispan..  |   1.388326   .2725993     1.67   0.095     .9448375     2.03998
+  Other Race  |   .9203752   .4170787    -0.18   0.855     .3786457    2.237159
+              |
+          sbp |   1.006176   .0029841     2.08   0.038     1.000344    1.012042
+ waist_circum |   1.034965   .0110383     3.22   0.001     1.013555    1.056828
+       weight |   .9646324   .0086442    -4.02   0.000     .9478379    .9817244
+   total_chol |   .9994396   .0015256    -0.37   0.713      .996454    1.002434
+          hdl |   1.001088   .0039712     0.27   0.784     .9933345    1.008901
+     1.ALQ150 |   1.836905   .2594248     4.31   0.000     1.392747    2.422709
+        _cons |   .0003768   .0002677   -11.10   0.000     .0000936    .0015168
+-------------------------------------------------------------------------------
+Note: _cons estimates baseline odds.
+
+</code></pre>
+<p><strong>How many observations have been omitted due to missing data? What is the impact of this on the estimates, standard errors and confidence intervals?</strong></p>
+<p>Of the 4441 observations in the dataset, 1234 have been omitted because at least one of the variables involved in the regression has a missing value. The impact of this is that the standard errors from the CCA are narrower than what they would have been with complete data, and confidence intervals are wider. The estimates may also be biased.</p>
+<p><strong>Under what conditions would this complete case analysis be unbiased? Do you think these conditions are plausible here? Perform some data analyses to investigate.</strong></p>
+<p>As our substantive analysis is a regression model, the CCA is valid if the probability of being a complete case is independent of the outcome (<code>dead10</code>) conditional on the set of covariates in the model. The missingness is confined to a subset of the covariates in the model, which were measured in the original survey during 1999-2000. It is a priori plausible that although missingness in these covariates may be related to each other and themselves, that conditional on these, missingness is independent of the future 10 year mortality variable. In this case the CCA would be (asymptotically) unbiased.</p>
+<p>In fact, because the substantive analysis is a logistic regression, there are alternative conditions under which the coefficients of the covariates are estimated unbiasedly. Specifically, it would be valid if missingness just depends on the outcome <code>dead10</code> and conditional on this not on the covariates (this is not very plausible). Further, we can say that estimates of (for example) the total cholesterol variable are unbiased provided the probability of being a complete case doesn&rsquo;t depend on total cholesterol, conditional on the outcome and other covariates. Such an assumption would seem quite reasonable.</p>
+<p>To further explore the plausiblility of different missingness assumptions, we fit some models to see how the probability of being a complete case depends on the fully observed outcome <code>dead10</code> and the covariates in our substantive model which are fully observed (<code>age</code> and <code>ethnicity</code>):</p>
+<pre><code>. gen cc = 1*(e(sample)==1)
+
+. logistic cc dead10
+
+Logistic regression                             Number of obs     =      4,441
+                                                LR chi2(1)        =      35.46
+                                                Prob &gt; chi2       =     0.0000
+Log likelihood = -2606.5723                     Pseudo R2         =     0.0068
+
+------------------------------------------------------------------------------
+          cc | Odds Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      dead10 |   .5986521   .0507731    -6.05   0.000     .5069697    .7069146
+       _cons |   2.853125   .1070117    27.95   0.000      2.65091    3.070766
+------------------------------------------------------------------------------
+Note: _cons estimates baseline odds.
+
+</code></pre>
+<p>The first regression we fit shows that the probability of being a complete case depends on the outcome variable in the substantive analysis, <code>dead10</code>. This association is obviously not causal - missingness in variables in the year 1999-2000 cannot be caused by future mortality. The association is due to other factors which causally affect missingness and also subsequent mortality.</p>
+<p>Next we add in the covariates from our substantive analysis which are fully observed:</p>
+<pre><code>. logistic cc dead10 i.gender age i.ethnicity
+
+Logistic regression                             Number of obs     =      4,441
+                                                LR chi2(7)        =     288.33
+                                                Prob &gt; chi2       =     0.0000
+Log likelihood = -2480.1374                     Pseudo R2         =     0.0549
+
+-------------------------------------------------------------------------------
+           cc | Odds Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
+--------------+----------------------------------------------------------------
+       dead10 |   .5638703   .0573286    -5.64   0.000     .4619954    .6882098
+              |
+       gender |
+      Female  |   .4105986   .0296831   -12.31   0.000     .3563544    .4730998
+          age |   .9957184   .0021116    -2.02   0.043     .9915884    .9998656
+              |
+    ethnicity |
+Other Hisp..  |   1.099404   .1652834     0.63   0.528     .8188202    1.476136
+Non-Hispan..  |   1.557791    .134322     5.14   0.000     1.315569    1.844611
+Non-Hispan..  |   .7204989   .0704904    -3.35   0.001      .594779    .8727927
+  Other Race  |   .5288552   .0982255    -3.43   0.001     .3674863    .7610837
+              |
+        _cons |   5.442413   .6831854    13.50   0.000     4.255398    6.960536
+-------------------------------------------------------------------------------
+Note: _cons estimates baseline odds.
+
+</code></pre>
+<p>This shows that the probability of being a complete case  is still associated with <code>dead10</code> conditional on <code>gender</code>, <code>age</code> and <code>ethnicity</code>, and moreover that gender and ethnicity are associated with missingness. From these analyses it is difficult to say with any certainty whether the earlier CCA is valid.</p>
+<p>We cannot put all the substantive model variables into our model for whether an individual is a complete case, because of the missingness in some of the covariates. Nevertheless, the variable which by far has the most missingness is <code>ALQ150</code>, and so whether an individual is a complete case is to a great extent driven by missingness in <code>ALQ150</code>. Thus we will look at how missingness in <code>ALQ150</code> depends on <code>dead10</code> and the other covariates in the substantive model, which are mostly fully observed:</p>
+<pre><code>. logistic rALQ dead10 i.gender age i.ethnicity sbp waist_circum weight total_ch
+&gt; ol hdl
+
+Logistic regression                             Number of obs     =      3,911
+                                                LR chi2(12)       =     285.70
+                                                Prob &gt; chi2       =     0.0000
+Log likelihood = -1700.8023                     Pseudo R2         =     0.0775
+
+-------------------------------------------------------------------------------
+         rALQ | Odds Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
+--------------+----------------------------------------------------------------
+       dead10 |    .956481   .1298585    -0.33   0.743     .7330124    1.248077
+              |
+       gender |
+      Female  |    .311692   .0320997   -11.32   0.000     .2547207    .3814055
+          age |   .9986674   .0033378    -0.40   0.690     .9921468    1.005231
+              |
+    ethnicity |
+Other Hisp..  |    1.14307   .2044511     0.75   0.455     .8050553    1.623005
+Non-Hispan..  |   1.633044   .1784093     4.49   0.000     1.318271    2.022979
+Non-Hispan..  |   .7906571   .1048235    -1.77   0.076     .6097304    1.025271
+  Other Race  |   .6467518   .1511802    -1.86   0.062     .4090409    1.022607
+              |
+          sbp |   .9955031   .0024149    -1.86   0.063     .9907812    1.000248
+ waist_circum |   .9781391   .0069811    -3.10   0.002     .9645517    .9919178
+       weight |   1.026785   .0060639     4.48   0.000     1.014969     1.03874
+   total_chol |   1.002008   .0011148     1.80   0.071     .9998251    1.004195
+          hdl |   1.010394   .0031896     3.28   0.001     1.004162    1.016665
+        _cons |   6.563413   2.933308     4.21   0.000     2.733458    15.75967
+-------------------------------------------------------------------------------
+Note: _cons estimates baseline odds.
+
+</code></pre>
+<p>This analysis shows no evidence that the probability of <code>ALQ150</code> being missing is associated with <code>dead10</code>, the outcome variable in our substantive model, conditional on the other covariates. This supports an assumption that the probability of being a complete case is independent of <code>dead10</code> conditional on the covariates in our substantive model - under which our CCA would be unbiased.</p>

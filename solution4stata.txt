@@ -1,0 +1,142 @@
+# Practical 4 solutions
+
+## Introduction
+
+## Substantive model interactions
+
+~~~~
+<<dd_do>>
+use "nhanesMort.dta", clear
+<</dd_do>>
+~~~~
+
+~~~~
+<<dd_do>>
+reg sbp i.gender age i.ethnicity waist_circum weight total_chol hdl i.ALQ150 c.waist_circum#i.ALQ150
+est store CCA
+<</dd_do>>
+~~~~
+
+**Given we now have the interaction term `waist_circum:ALQ150Yes`, how should the coefficients for `waist_circum`, `ALQ150Yes` and `waist_circum:ALQ150Yes` be interpreted?**
+
+The coefficient of `waist_circum` now represents the average increase in `sbp` for a 1 unit increase in `waist_circum` for someone with `ALQ150` equal to 0 (No). The coefficient of `ALQ150` now corresponds to the estimated average increase in `sbp` for Yes vs. No for `ALQ150` for someone with a `waist_circum` of zero. Since no one has a zero waist circumference, this is not a very useful value. If we wanted to present these results we would either calculate the appropriate linear transformation of the coefficients to obtain an estimate of the effect of `ALQ150` for a suitable value of `waist_circum`, or alternatively we could centre `waist_circum` at some sensible value before performing any analyses. The interaction term `waist_circum#ALQ150Yes` represents the additional effect of 1 unit increases in `waist_circum` for those with `ALQ150` equal to Yes.
+
+
+### Impute then transform
+
+~~~~
+<<dd_do>>
+mi set flong
+mi register imputed sbp waist_circum weight total_chol hdl ALQ150
+mi impute chained (reg) sbp waist_circum weight total_chol hdl (logit) ALQ150, add(10) rseed(21466)
+<</dd_do>>
+~~~~
+
+**Now fit the substantive model, including the interaction term, to the imputed datasets, and compare the estimates to the earlier complete case estimates. In particular, how much has the coefficient for the interaction term changed?**
+
+There are some noticeable differences between the estimates. The interaction coefficient is somewhat smaller than in the complete case analysis, and the coefficients for the main effects of `waist_circum` and `ALQ150Yes` are also somewhat smaller. These changes are likely due to the way we have imputed the missing data - the interaction has been completely ignored in the imputation process. Thus missing `sbp` values have been imputed from a linear model assuming no interaction between `waist_circum` and `ALQ150`. Moreover, missing values in `waist_circum` and `ALQ150` have been imputed assuming no interaction between `sbp` and `ALQ150` and between `sbp` and `waist_circum`, which are implied by the presence of the `waist_circum*ALQ150` interaction in our substantive model for `sbp`.
+
+This approach to handling interactions (and more generally derived variables) in the substantive model is not really very good.
+
+~~~~
+<<dd_do>>
+mi estimate, post: reg sbp i.gender age i.ethnicity waist_circum weight /*
+*/ total_chol hdl i.ALQ150 c.waist_circum#i.ALQ150
+est store MIimpTransform
+est table CCA MIimpTransform
+<</dd_do>>
+~~~~
+
+### Passive imputation
+
+~~~~
+<<dd_do>>
+mi extract 0, clear
+mi set flong
+mi register imputed sbp waist_circum weight total_chol hdl ALQ150
+mi impute chained (reg, include((waist_circum*ALQ150))) sbp /*
+*/ (reg) waist_circum weight total_chol hdl (logit) ALQ150, add(10) rseed(21466)
+<</dd_do>>
+~~~~
+
+**Fit the substantive model to the imputed datasets and compare the results with those obtained earlier. Check what modelling assumptions have been made by the imputation process and consider how this may impact on the validity of the final estimates.**
+
+We are now imputing missing values in `sbp` from the same model as our substantive model, including the `waist_circum*ALQ150` interaction, which is a good thing. But when imputing `waist_circum` and (more importantly given how many missing values there are) `ALQ150`, we are not allowing for interactions between the outcome `sbp` and `ALQ150` and `waist_circum` respectively. We could add additional interaction terms to the data frame, and try and do this, but this approach rapidly gets pretty complicated. Moreover, it is not readily appararent that if we do this our imputation models are definitely compatible/congenial with our substantive model.
+
+~~~~
+<<dd_do>>
+mi estimate, post: reg sbp i.gender age i.ethnicity waist_circum weight /*
+*/ total_chol hdl i.ALQ150 c.waist_circum#i.ALQ150
+est store MIpassive
+est table CCA MIimpTransform MIpassive
+<</dd_do>>
+~~~~
+
+
+### SMCFCS
+
+~~~~
+<<dd_do>>
+ssc install smcfcs, replace
+<</dd_do>>
+~~~~
+
+~~~~
+<<dd_do>>
+mi extract 0, clear
+mi set flong
+set seed 34412
+gen waistALQ = waist_circum*ALQ150
+smcfcs reg sbp i.gender age i.ethnicity waist_circum weight total_chol hdl /*
+*/  ALQ150 waistALQ, /*
+*/ reg(sbp waist_circum weight total_chol hdl) logit(ALQ150) /*
+*/ passive(waistALQ = waist_circum*ALQ150) m(10)
+<</dd_do>>
+~~~~
+
+~~~~
+<<dd_do>>
+mi estimate, post: reg sbp i.gender age i.ethnicity waist_circum weight /*
+*/ total_chol hdl i.ALQ150 c.waist_circum#i.ALQ150
+est store smcfcs
+est table CCA MIimpTransform MIpassive smcfcs
+<</dd_do>>
+~~~~
+
+**Compare the estimates to those obtained earlier, in particular those involving `waist_circum` and `ALQ150`.**
+
+Focusing on the terms involving `waist_circum` and `ALQ150`: the interaction coefficient from SMCFCS is the one closest to the CCA, with the other MI estimates of the interaction diluted towards the null. This is what we expect given that the impute then transform and passive MI approaches do not properly allow for the possibility of an interaction effect. The SMCFCS `ALQ150` coefficient is also closest to the CCA one. However, the SMCFCS `waist_circum` estimate is quite a bit smaller than all of other estimates - it is not immediately clear why.
+
+## Cox proportional hazards substantive model
+
+~~~~
+<<dd_do>>
+use "nhanesMort.dta", clear
+stset tMonths, failure(dead)
+stcox i.gender age i.ethnicity sbp waist_circum weight total_chol hdl i.ALQ150
+est store CCA
+<</dd_do>>
+~~~~
+
+
+~~~~
+<<dd_do>>
+set seed 7233
+smcfcs stcox gender age i.ethnicity sbp waist_circum weight total_chol hdl ALQ150, /*
+*/ reg(sbp waist_circum weight total_chol hdl) logit(ALQ150)
+<</dd_do>>
+~~~~
+
+~~~~
+<<dd_do>>
+mi estimate, post: stcox i.gender age i.ethnicity sbp waist_circum weight /*
+*/ total_chol hdl i.ALQ150
+est store smcfcs
+est table CCA smcfcs, se
+<</dd_do>>
+~~~~
+
+**How do the estimates and standard errors compare between CCA and after imputation using `smcfcs`?**
+
+With a few exceptions, the changes in coefficients are mostly small. For the standard errors, we see as we would expect reductions in standard errors for those covariates which are fully observed or mostly fully observed. In contrast, the standard error for `ALQ150` is actually a little bit larger than from CCA.
+

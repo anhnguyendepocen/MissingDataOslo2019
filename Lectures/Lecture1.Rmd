@@ -1,0 +1,263 @@
+---
+title: "Lecture 1 - issues raised by missing data, a systematic approach, and missingness mechanisms"
+subtitle: "Multiple imputation for missing data"
+author: "[Jonathan Bartlett (thestatsgeek.com)](https://thestatsgeek.com)"
+date: "Oslo, November 2019"
+output:
+  beamer_presentation:
+    keep_tex: true
+    slide_level: 2
+    toc: true
+urlcolor: blue
+bibliography: references.bib
+link-citations: true
+linkcolor: blue
+---
+
+```{r setup, include=FALSE}
+#knitr::opts_chunk$set(echo = FALSE)
+library(ggplot2)
+library(pander)
+
+def.chunk.hook  <- knitr::knit_hooks$get("chunk")
+knitr::knit_hooks$set(chunk = function(x, options) {
+  x <- def.chunk.hook(x, options)
+  ifelse(options$size != "normalsize", paste0("\\", options$size,"\n\n", x, "\n\n \\normalsize"), x)
+})
+```
+
+## Course aims
+
+- Understand the effects of missing data on statistical analyses
+- Learn about the assumptions under which simple methods for handling missing data are valid
+- Learn about principled statistical methods for handling missing data, specifically multiple imputation
+
+
+# Missing data - what's the big deal and a systematic approach
+
+## Why is this necessary?
+
+- Missing data commonly arise in empirical research.
+- They cause a loss of information, and arguably more importantly, may introduce bias into inferences.
+- They are often inadequately handled in both observational and experimental studies.
+- For example, [@karahalios2012review] reviewed the reporting and handling of missing data in longitudinal measurements in cohort studies.
+- They found that reporting of missing data was inconsistent and inappropriate statistical methods continue to be used (in this field at least).
+- Scientific journals and bodies increasingly recognise the importance of careful handling of missing data.
+
+
+## Missing data in trials - the problem and its prevention
+
+- A US National Research Council (NRC) report was recently published on the prevention and treatment of missing data in trials [@NRC2010;@Little2012].
+- They noted that missing data have seriously compromised inferences from clinical trials in the past.
+- They concluded that the assumption that analysis methods can compensate for missing data are not justified.
+- The panel therefore recommended strategies for minimizing missing data in trials.
+
+## Missing data in trials - six recommended principles (steps)
+Based on [@Little2012]
+
+1. Find out if values are missing are relevant for the intended analysis.
+2. Formulate a well defined causal primary measure of treatment effect.
+3. Document and investigate the reasons for missing data.
+4. Decide on a primary set of assumptions about missing data.
+5. Perform an analysis using a statistical method which is valid under the assumption chosen in 4.
+6. Perform a sensitivity analysis to explore robustness to plausible deviations from the assumption in 4.
+
+## A principled approach
+
+- We will attempt to follow such an approach.
+- Thinking more generally, outside of clinical trials, step 2. consists of specifying our substantive model or quantitiy of interest.
+
+
+## Example
+
+- e.g. consider the following break down of smoking status (for males in THIN from [@Marston2010].
+- Our objective is to estimate the marginal distribution of smoking status in the population.
+	
+Smoking status  | n (% of sample) | (% of those observed)
+--------------- | --------------- | ----------------------
+Non             | 82,479 (36)     | (48)
+Ex              | 30,294 (13)     | (18)
+Current         | 57,599 (25)     | (34) 
+Missing         | 56,661 (25)     | n/a 
+
+- Are the %s in the last column unbiased estimates?
+
+# Missingness mechanisms
+
+
+## Rubin's classification
+
+- Our first step is to think about the mechanism causing a variable (e.g. smoking status) to be missing.
+- Rubin developed a classification for missing data `mechanisms' [@Rubin:1976].
+- We introduce the three types in a very simple setting.
+- We assume we have one fully observed variable $Y_{1}$ (age), and one partially observed variable $Y_{2}$ (blood pressure (BP)).
+- We will let $R$ indicate whether $Y_{2}$ is observed ($R=1$) or is missing ($R=0$).
+- Note $Y_{2}$ is not necessarily the `outcome' in our final analysis.
+
+## Missing completely at random
+
+- The missing values in BP ($Y_{2}$) are said to be missing completely at random (MCAR) if missingness is independent of BP ($Y_{2}$) and age ($Y_{1}$).
+- i.e. those subjects with missing BP do not differ systematically (in terms of BP or age) to those with BP observed.
+- In terms of the missingness indicator $R$, MCAR means
+
+$$P(R=1|Y_{1},Y_{2})=P(R=1)$$
+
+## Example - blood pressure (simulated data)
+
+To illustrate, we consider some simulated data on age (categorised) and systolic blood pressure.
+```{r echo=FALSE}
+expit <- function(x) {exp(x)/(1+exp(x))}
+set.seed(1235)
+n <- 200
+ageCat <- factor(c(rep(0,n/2),rep(1,n/2)), labels=c("30-50 years", "50-70 years"))
+bp <- 110+30*(as.numeric(ageCat)-1)+rnorm(n,sd=20)
+r <- 1*(runif(n)<expit(as.numeric(ageCat)-1))
+rCat <- factor(r, labels=c("BP missing", "BP observed"))
+bpFull <- data.frame(ageCat,bp,rCat)
+bp[r==0] <- NA
+bpObs <- data.frame(ageCat,bp,rCat)
+```
+
+```{r, echo=FALSE}
+library(foreign)
+write.dta(bpObs, "bpObs.dta")
+```
+
+```{r, size="small"}
+summary(bpObs)
+```
+
+## Checking MCAR
+- With the observed data, we could investigate whether age $Y_{1}$ is associated with missingness of blood presure ($R$).
+- If it is, we can conclude the data are \textcolor{red}{not} MCAR.
+- If it is not, the data are consistent with MCAR, although it is still possible that it is MNAR.
+- It is possible (though arguably unlikely in this case) that BP is associated with missingness in BP, even if age is not.
+
+## Checking MCAR
+
+To examine whether BP is plausibly MCAR, we compare the proportion of missingness between the two age categories:
+
+```{r, echo=FALSE, size="small"}
+pander(addmargins(table(bpObs$ageCat, rCat)))
+```
+
+## Testing MCAR 
+
+We can formally test MCAR, e.g. with a chi-squared test:
+
+```{r, size="small"}
+chisq.test(table(bpObs$ageCat, is.na(bpObs$bp))) 
+```
+
+Here we have strong evidence to reject MCAR.
+
+## Missing at random
+
+- BP ($Y_{2}$) is missing at random (MAR) given age ($Y_{1}$) if missingness is independent of BP ($Y_{2}$) given age ($Y_{1}$).
+- This means that amongst subjects of the same age, missingness in BP is independent of BP.
+- In terms of the missingness indicator $R$, MAR means
+
+$$P(R=1|Y_{1},Y_{2})=P(R=1|Y_{1})$$
+
+- The name is unfortunate. MAR does **not** mean data are missing completely randomly!
+
+## Checking MAR
+
+- We cannot check whether MAR holds based on the observed data.
+- To do this we would need to check whether, within categories of age, those with missing BP had higher/lower BP than those with it observed.
+
+## Blood pressure MAR given age
+
+Using the full/complete data:
+
+```{r, echo=FALSE, fig.height=5}
+ggplot(bpFull, aes(x = ageCat, y = bp, color=rCat)) + 
+  geom_jitter(width=0.05, height=0) +
+  labs(x = "Age group", y="Systolic blood pressure (mmHg)") +
+  theme(text = element_text(size=15))
+
+```
+
+From this MAR appears plausible - within age categories, the distributions of observed and missing BP look similar.
+
+## Blood pressure MAR given age
+
+But in reality all we get to see is:
+
+```{r, echo=FALSE, fig.height=5, warning=FALSE}
+ggplot(bpObs, aes(x = ageCat, y = bp)) + 
+  geom_jitter(width=0.05, height=0) +
+  labs(x = "Age group", y="Systolic blood pressure (mmHg)") +
+  theme(text = element_text(size=15))
+```
+
+## Analysis assuming MAR
+
+- If we are willing to assume data are MAR, we can construct unbiased estimates using a variety of statistical methods.
+- e.g. estimate overall mean BP by a weighted average of observed BP means, weighting according to overall proportions of age categories:
+
+```{r, echo=FALSE}
+mean1 <- mean(bpObs$bp[bpObs$ageCat=="30-50 years"], na.rm=T)
+mean2 <- mean(bpObs$bp[bpObs$ageCat=="50-70 years"], na.rm=T)
+wgtavg <- 0.5*mean1 + 0.5*mean2
+```
+
+$$	\frac{100 \times `r round(mean1,1)` + 100 \times `r round(mean2,1)`}{200} = `r round(wgtavg,1)`  $$
+
+- Note this is not the same as crude average observed BP.
+
+```{r, size="small"}
+mean(bpObs$bp, na.rm=TRUE)
+```
+
+## A different representation of MAR
+
+- We have defined MCAR and MAR in terms of how $P(R=1|Y_{2},Y_{1})$ depends on age ($Y_{1}$) and BP ($Y_{2}$).
+- From the plot, we see that MAR can also be viewed in terms of the conditional distribution of BP ($Y_{2}$) given age ($Y_{1}$).
+- MAR implies that
+
+$$	f(Y_{2}|Y_{1},R=0)=f(Y_{2}|Y_{1},R=1)=f(Y_{2}|Y_{1})$$
+
+- That is, the distribution of BP ($Y_{2}$), given age ($Y_{1}$), is the same whether or not BP ($Y_{2}$) is observed.
+- This key consequence of MAR is directly exploited by **multiple imputation**.
+
+
+## Missing not at random
+
+- If data are neither MCAR nor MAR, they are missing not at random (MNAR).
+- This means the chance of seeing $Y_{2}$ depends on $Y_{2}$, even after conditioning on $Y_{1}$.
+- Equivalently, $f(Y_{2}|Y_{1},R=0) \neq f(Y_{2}|Y_{1},R=1)$.
+- MNAR is much more difficult to handle. Essentially the data cannot tell us how the missing values differ to the observed values (given $Y_{1}$).
+- We are thus led to conducting sensitivity analyses.
+
+## An MNAR analysis of mean blood pressure
+
+- Suppose that, within age categories, the missing BPs are 10mmHg higher than the observed BPs.
+- \textcolor{red}{Given} this assumption, we can estimate mean BP by assuming the mean of the missing BPs are 10mmHg higher than predicted by MAR:
+
+```{r echo=FALSE}
+mnarEst <- (sum(r[ageCat=="30-50 years"])*mean1 + sum(1-r[ageCat=="30-50 years"])*(mean1+10) + sum(r[ageCat=="50-70 years"])*mean2 + sum(1-r[ageCat=="50-70 years"])*(mean2+10))/n
+```
+
+$$ \frac{`r sum(r[ageCat=="30-50 years"])` \times `r round(mean1,1)` + `r sum(1-r[ageCat=="30-50 years"])` \times `r round(mean1+10,1)` + `r sum(r[ageCat=="50-70 years"])` \times `r round(mean2,1)` + `r sum(1-r[ageCat=="50-70 years"])` \times `r round(mean2+10,1)`}{`r n`} = `r round(mnarEst,1)`$$
+
+- Note that we must specify how we think the missing BPs differ to the observed values, based on our contextual knowledge.
+- The data **cannot** tell us how large this difference is!
+
+## Summary
+
+- Missing data introduce ambiguity into the analysis, beyond the familiar  sampling imprecision.
+- Extra assumptions about the missingness mechanism are needed to ensure valid estimates and inferences.
+- These assumptions can rarely be verified from the data at hand. 
+- It is sensible to consider carefully possible missingness mechanisms, and formulate appropriate analyses.
+- Because we cannot be sure about the type of missingness mechanism at work, sensitivity analyses are important.
+
+## Summary continued
+
+- Missingness mechanisms fall into three broad classes: MCAR, MAR and MNAR.
+- Under MCAR, we obtain valid estimates and inferences by analysing the subset of subjects with no missing values.
+- Under MAR, we must allow for variables (somehow) which predict missingness.
+- MAR analyses can be done in a number of ways.
+- Multiple imputation is one such approach, which we will explore in this course.
+
+## References {.allowframebreaks}

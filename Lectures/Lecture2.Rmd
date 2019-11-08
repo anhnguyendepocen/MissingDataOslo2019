@@ -1,0 +1,565 @@
+---
+title: "Lecture 2 - Shortcomings of ad-hoc methods, complete case analysis, & introduction to multiple imputation (MI)"
+subtitle: "Multiple imputation for missing data"
+author: "[Jonathan Bartlett (thestatsgeek.com)](https://thestatsgeek.com)"
+date: "Oslo, November 2019"
+output:
+  beamer_presentation:
+    keep_tex: true
+    slide_level: 2
+    toc: true
+urlcolor: blue
+bibliography: references.bib
+link-citations: true
+linkcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.align='center')
+library(ggplot2)
+library(pander)
+
+def.chunk.hook  <- knitr::knit_hooks$get("chunk")
+knitr::knit_hooks$set(chunk = function(x, options) {
+  x <- def.chunk.hook(x, options)
+  ifelse(options$size != "normalsize", paste0("\\", options$size,"\n\n", x, "\n\n \\normalsize"), x)
+})
+```
+
+# Ad-hoc methods
+
+## Ad-hoc methods
+
+- Ad-hoc methods are simple and easy apparent solutions to handling missing data.
+- Commonly used examples are: simple mean imputation, missing category method, last observation carried forward.
+- All (except missing category) are examples of single imputation methods.
+- Question: in general will we get valid answers using these ad-hoc methods?
+
+## Issues with ad-hoc methods
+
+- Answer: No in general.
+- They can introduce \textcolor{red}{bias} into estimates.
+- They can lead to confidence intervals that are too \textcolor{red}{narrow}.
+- The latter is true of all single imputation methods, unless special procedures are used to allow for uncertainty due to imputation (e.g. bootstrapping)
+
+## Simple mean imputation
+
+- Replaces missing values with mean of observed.
+- Variance of the variable is artificially reduced.
+- Associations with other variables are distorted.
+- **It's a bad idea!**
+
+## Regression mean imputation
+
+- Replaces missing values with prediction based on observed variables.
+- Better than mean imputation.
+- Variance of the variable is still too small.
+- Associations with other variables may still be distorted.
+- **It's better, but still a bad idea!**
+
+## Missing category method
+
+- For categorical variables with missing values, create a new missing category.
+- In general regression coefficients after using this method are biased.
+- To see why, think about the case where the variable is a confounder...
+- An exception is with missing baseline in randomized trials, see [@White/Thompson:2005]
+
+## Last observation carried forward (LOCF)
+
+- In longitudinal studies, an approach that was historically popular is last observation carried forward (LOCF).
+- Makes strong, implausible assumptions.
+- In general neither conservative or liberal for treatment effects.
+- Bias depends on unknown treatment effect!
+- See [@Molenberghs/Thijs:2004;@Cook/Zeng/Yi:2004;@Carpenter/Kenward/Evans/White:2004]
+
+## Ad-hoc methods summary
+
+- Ad-hoc methods are an attempt to `solve' the
+problem of missing data.
+- They avoid any serious thinking about the
+issues raised by missing data.
+- They do not utilize statistical principles.
+- Generally they result in misleading conclusions.
+
+# Complete case analysis
+
+## Complete case analysis
+
+- Complete case analysis (CCA) ignores all units/observations with incomplete data in those variables involved in analysis.
+- It is the default of most (all?!) statistical packages when presented with missing data.
+- We will lose precision in estimates (compared to full data).
+- We explore biases of CCA in different situations...
+
+## Marginal estimands
+
+```{r echo=FALSE}
+expit <- function(x) {exp(x)/(1+exp(x))}
+set.seed(1235)
+n <- 1000
+age <- 20+60*runif(n)
+sbp <- 130+(age-40)+rnorm(n,sd=20)
+sbpFull <- data.frame(age,sbp)
+```
+
+- Suppose we were interested in estimating the (marginal) mean systolic blood pressure (SBP) in a population.
+- The plot below shows the complete sample (n=1000) of SBP values:
+
+```{r, echo=FALSE, fig.height=1.5, fig.width=3, message=FALSE}
+ggplot(sbpFull, aes(x=sbp)) + geom_density(alpha=.3, fill="black") 
+```
+
+The mean is `r round(mean(sbpFull$sbp),1)` 
+
+## MCAR - what will happen?
+
+- Now we will make 50% of values missing.
+- If we make them missing completely at random, will the complete case distribution and mean go up or down?
+
+## MCAR - what will happen?
+```{r, echo=FALSE}
+sbp1 <- sbpFull
+sbp1$sbp[(runif(n)<0.5)] <- NA
+```
+
+The complete case mean is `r round(mean(sbp1$sbp, na.rm=T),1)`
+
+```{r, echo=FALSE, fig.height=2, fig.width=4, message=FALSE, warning=FALSE}
+temp <- data.frame(sbp=c(sbpFull$sbp, sbp1$sbp), type=rep(c("Complete", "MCAR"), c(n, n)))
+ggplot(temp, aes(x=sbp, fill=type)) + geom_density(alpha=0.5) 
+```
+
+**No bias**
+
+## MNAR - what will happen?
+
+- Now we will make higher values of SBP more likely to be missing.
+- Will the complete case distribution and mean go up or down?
+
+## MNAR - what will happen?
+```{r, echo=FALSE}
+sbp2 <- sbpFull
+sbp2$sbp[(runif(n)<expit(2*(sbpFull$sbp-mean(sbpFull$sbp))/sd(sbpFull$sbp)))] <- NA
+```
+
+The complete case mean is `r round(mean(sbp2$sbp, na.rm=T),1)`
+
+```{r, echo=FALSE, fig.height=2, fig.width=4, message=FALSE, warning=FALSE}
+temp <- data.frame(sbp=c(sbpFull$sbp, sbp2$sbp), type=rep(c("Complete", "MNAR"), c(n, n)))
+ggplot(temp, aes(x=sbp, fill=type)) + geom_density(alpha=0.5) 
+```
+
+**Biased downwards**
+
+## MAR - what will happen?
+
+- Now we will make values of SBP more likely to be missing if the person's age (assumed fully observed) is high.
+- Will the complete case distribution and mean go up or down?
+
+## MAR - what will happen?
+```{r, echo=FALSE}
+sbp3 <- sbpFull
+sbp3$sbp[(runif(n)<expit(2*(sbpFull$age-mean(sbpFull$age))/sd(sbpFull$age)))] <- NA
+```
+
+The complete case mean is `r round(mean(sbp3$sbp, na.rm=T),1)`
+
+```{r, echo=FALSE, fig.height=2, fig.width=4, message=FALSE, warning=FALSE}
+temp <- data.frame(sbp=c(sbpFull$sbp, sbp3$sbp), type=rep(c("Complete", "MAR"), c(n, n)))
+ggplot(temp, aes(x=sbp, fill=type)) + geom_density(alpha=0.5) 
+```
+
+**Biased downwards**
+
+## Marginal estimands - conclusions
+
+- For marginal estimands like means, we get bias under both MAR and MNAR mechanisms.
+- Whether we get bias just depends on whether missingness is MCAR or not.
+- Since in practice MCAR often doesn't hold, CCA for marginal estimands will usually be biased.
+
+## Complete case analysis - regression analyses
+
+- Often we are interested in fitting a regression model for an outcome $Y$ on covariates $X_{1},..,X_{p}$.
+- A CCA drops any observations which have one or more values missing in the variables used in the regression.
+- With many variables in the regression and sporadic missingness, the complete cases can be a small subset, leading to big loss in information.
+- What about bias?
+
+## Linear regression complete case analysis
+
+This is the full (complete) SBP against age data.
+
+```{r, echo=FALSE, fig.height=2, fig.width=4,message=FALSE, warning=FALSE}
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
+ggplot(sbpFull, aes(x=age, y=sbp, color=gg_color_hue(1))) + 
+  geom_point(size=0.1, show.legend = FALSE)+
+  geom_smooth(method=lm, size=0.5, se=FALSE) +
+  theme(text = element_text(size=7)) +
+  theme(legend.position = "none")
+```
+
+## MCAR complete case regression
+
+This is the CCA of the MCAR dataset.
+
+```{r, echo=FALSE, fig.height=2, fig.width=4,message=FALSE, warning=FALSE}
+temp <- data.frame(age=c(age,age), sbp=c(sbpFull$sbp, sbp1$sbp), type=rep(c("Complete", "MCAR"), c(n, n)))
+ggplot(temp, aes(x=age, y=sbp, color=type))+ geom_point(size=0.1) +
+  geom_smooth(method=lm, se=FALSE, size=0.5)  +
+  theme(text = element_text(size=7))
+```
+
+CCA is unbiased, as we should expect.
+
+## Missingness dependent on outcome
+
+When missingness depends on outcome (SBP):
+
+```{r, echo=FALSE, fig.height=2, fig.width=4,message=FALSE, warning=FALSE}
+temp <- data.frame(age=c(age,age), sbp=c(sbpFull$sbp, sbp2$sbp), type=rep(c("Complete", "Missing dependent \non outcome"), c(n, n)))
+ggplot(temp, aes(x=age, y=sbp, colour=type))+ geom_point(size=0.1) +
+  geom_smooth(method=lm, se=FALSE, size=0.5)  +
+  theme(text = element_text(size=7))
+```
+
+CCA is now biased.
+
+## Missingness dependent on covariate
+
+When missingness depends on the covariate (age):
+
+```{r, echo=FALSE, fig.height=2, fig.width=4,message=FALSE, warning=FALSE}
+temp <- data.frame(age=c(age,age), sbp=c(sbpFull$sbp, sbp3$sbp), type=rep(c("Complete", "Missing dependent \non covariate"), c(n, n)))
+ggplot(temp, aes(x=age, y=sbp, color=type))+ geom_point(size=0.1) +
+  geom_smooth(method=lm, se=FALSE, size=0.5)  +
+  theme(text = element_text(size=7))
+```
+
+CCA is unbiased.
+
+## Complete case analysis - regression analyses
+
+- CCA regression analyses are unbiased if probability of being a complete case is independent of outcome variable, conditional on covariates.
+- This condition doesn't related to which variable(s) (outcome or covariates) have missing values.
+- It is \textcolor{red}{not} true that CCA is valid under MAR and invalid under MNAR.
+- It can be valid under both types - the key is whether missingness is conditionally (on covariates) independent of outcome.
+
+## Justification
+
+Why does this result hold in general?
+
+- Let $R$ denote whether a subject is a complete case ($R=1$ for complete cases, $R=0$ for incomplete cases)
+- Our assumption for missingness is that $f(R|Y,\mathbf X)=f(R|\mathbf X)$
+- A CCA involves fitting the conditional model for $f(Y|\mathbf X)$ in the subset of subjects with $R=1$:
+$$
+\begin{aligned}
+f(Y|\mathbf X,R=1) = \frac{f(Y,\mathbf X,R=1)}{f(\mathbf X,R=1)} &= \frac{f(R=1|\mathbf X,Y)f(\mathbf X,Y)}{f(R=1|\mathbf X)f(\mathbf X)} \\
+	&= \frac{f(R=1|\mathbf X) f(\mathbf X,Y)}{f(R=1|\mathbf X) f(\mathbf X)} \\
+	&= f(Y|\mathbf X)
+\end{aligned}
+$$
+- Thus the conditional distribution $Y|X$ in the complete cases is the same as in the complete data.
+
+## Complete case validity - Example
+
+- [@Bartlett2014a] reported results of an illustrative analysis based on cross-sectional data from the US NHANES 2003-2004 study.
+- They fitted a regression model for systolic blood pressure (SBP) with no. of alcoholic drinks, BMI, and age as covariates.
+- No. of alcoholic drinks was missing for 34.1\% of individuals.
+- Missingness in this variable may well be related to level of alcohol consumption (i.e. MNAR), age, (and maybe) BMI, but given these is probably unrelated to SBP.
+- If this assumption is true, the CCA is valid, even though the covariate is (assumed to be) MNAR.
+
+## Logistic regression CCA
+
+* If the outcome model is logistic regression, CCA can give valid estimates (of covariate effects) under even weaker missingness assumptions [@Bartlett2015].
+* This is due to the symmetry property of odds ratios (the same reason we can use odds ratios in case-control studies).
+* For covariate effects (but not the intercept), we get consistent estimates if missingness is:
+  + dependent on $Y$, or
+  + dependent on $\mathbf X=(X_{1},..,X_{p})$
+* Furthermore, missingness could be dependent on $Y$ and $X_{2},..,X_{p}$, and estimates of coefficient of $X_{1}$ are still consistent.
+
+## CCA - recommendations
+
+- It is generally always a good idea to perform CCA for your analysis.
+- The estimates you get can be compared with those from other analyses which make other assumptions.
+- Important to remember that CCA might be valid in your situation, depending on the analysis you are performing and missingness assumptions.
+
+## Why are we wasting our time on MAR and MNAR?
+
+- Validity of CCA doesn't fit neatly into the MCAR/MAR/MNAR framework.
+- Why then did we spend time defining and thinking about MAR and MNAR?
+- Answer: because an important collection of methods can give valid inferences under MAR mechanisms.
+- One such method is multiple imputation...
+
+# Multiple imputation
+
+## Multiple imputation
+
+- Multiple imputation (MI) is a flexible and increasingly popular approach to handling missing data.
+- It relies (at least in its usual form) on assuming data are MAR.
+- We will introduce it in a simple setting with two variables.
+- Later we will look at extensions to more realistic situations.
+
+## Intuition for MI
+
+- Suppose our data set has variables $X$ and $Y$, with some $Y$ values MAR given $X$.
+- Our aim is to impute missing values in $Y$, taking $X$ into account.
+- In parametric imputation, we specify a regression model for $f(Y|X)$.
+- We want to impute the missing $Y$ values from this model.
+- \textbf{$Y$ need not necessarily be the outcome in our final analysis}.
+
+## Intuition for MI
+
+- MAR here means missingness in $Y$ is independent of $Y$, given $X$.
+- This means that if we fit the model for $f(Y|X)$ using complete cases, estimates are valid.
+- Using the fitted model, we can then impute $Y$ for the incomplete cases.
+- With the imputed data set, we can calculate our statistic of interest (e.g. sample mean, variance, regression of $X$ on $Y$).
+
+## Why multiple imputation?
+In multiple imputation we create a number $M$ imputed datasets, estimate our parameter(s) of interest from each imputed dataset, and then calculate the average across imputations
+
+There are two main reasons why we create *multiple* imputed datasets:
+
+1. We reduce Monte-Carlo error which is introduced through using a simulation based method
+2. Estimating variances and finding confidence intervals is relatively easy if we create multiple imputations, but is rather difficult with only a single imputation
+
+## Multiple imputation for one continuous variable
+
+- Next describe the details/steps for linear regression imputation of one variable.
+- Later on, we will see that application of MI in practice requires careful considerations of a number of aspects (e.g. missingness assumptions, model specification).
+- For now, we will put these to one side.
+
+## Multiple imputation for one continuous variable
+- $X$ is fully observed.
+- $Y$ contains missing values, and we assume $Y$ is MAR given $X$.
+- We want to create multiple imputations of the missing values in $Y$, using $X$.
+- We will create $M$ imputations - we will come back to the choice of $M$ later.
+
+## The observed data
+
+The plot shows the complete cases (where $Y$ and $X$ observed) and five subjects with $X$ observed but $Y$ missing.
+```{r,echo=FALSE}
+set.seed(632)
+n <- 20
+x <- 10*runif(n)
+y <- x+rnorm(n)
+y[1:5] <- 0
+obs <- data.frame(x,y,ymiss=c(rep("Y missing",5),rep("Y observed",15)))
+```
+
+```{r, echo=FALSE, fig.height=2, fig.width=4,message=FALSE, warning=FALSE}
+ggplot(obs, aes(x=x, y=y, color=ymiss)) + 
+  geom_point(size=1)+
+  scale_color_manual(values=c("red", "blue")) +
+  theme(text = element_text(size=7))
+```
+## Step 1 - fit the imputation model
+
+We first fit the imputation model.
+
+This is a model for the partially observed variable ($Y$) on the fully observed variable ($X$), using a CCA.
+
+```{r, echo=FALSE, fig.height=2, fig.width=4,message=FALSE, warning=FALSE}
+ggplot(obs, aes(x=x, y=y, color=ymiss)) + 
+  geom_point(size=1)+
+  scale_color_manual(values=c("red", "blue")) +
+  theme(text = element_text(size=7)) +
+  geom_smooth(data=obs[6:20,], se=FALSE, method=lm, size=0.5)
+```
+
+## Step 2 - draw new imp. model parameter values
+
+Next we perturb the fitted line to account for uncertainty in its estimation (we take draws from the Bayesian posterior of the regression model parameters).
+
+```{r, echo=FALSE}
+ccaFit <- lm(y~x, data=obs[6:20,])
+intercept1 <- coefficients(ccaFit)[1]+1
+slope1 <- coefficients(ccaFit)[2]-0.2
+```
+
+```{r, echo=FALSE, fig.height=2, fig.width=4,message=FALSE, warning=FALSE}
+ggplot(obs, aes(x=x, y=y, color=ymiss)) + 
+  geom_point(size=1)+
+  scale_color_manual(values=c("red", "blue")) +
+  theme(text = element_text(size=7)) +
+  geom_smooth(data=obs[6:20,], se=FALSE, method=lm, size=0.5) +
+  geom_abline(intercept=intercept1, slope=slope1, color="green")
+```
+
+## Step 3 - calculate predicted values
+
+We then calculate predicted value of $Y$ for those with $Y$ missing.
+
+```{r, echo=FALSE}
+obs <- rbind(obs, data.frame(x=x[1:5], y=intercept1+slope1*x[1:5], ymiss="Imp 1 predicted Y"))
+```
+
+```{r, echo=FALSE, fig.height=2, fig.width=4,message=FALSE, warning=FALSE}
+ggplot(obs, aes(x=x, y=y, color=ymiss)) + 
+  geom_point(size=1)+
+  scale_color_manual(values=c("red", "blue", "green")) +
+  theme(text = element_text(size=7)) +
+  geom_smooth(data=obs[6:20,], se=FALSE, method=lm, size=0.5) +
+  geom_abline(intercept=intercept1, slope=slope1, color="green")
+```
+
+## Step 4 - create imputed values
+
+Imputed values are random draws centred at predicted $Y$ values, with error variance as drawn in earlier Bayesian posterior draw step.
+
+```{r, echo=FALSE}
+obs <- rbind(obs, data.frame(x=x[1:5], y=intercept1+slope1*x[1:5]+rnorm(5,mean=0,sd=1), ymiss="Imputation 1"))
+```
+
+```{r, echo=FALSE, fig.height=2, fig.width=4,message=FALSE, warning=FALSE}
+ggplot(obs, aes(x=x, y=y, color=ymiss)) + 
+  geom_point(size=1)+
+  scale_color_manual(values=c("red", "blue", "green", "green4")) +
+  theme(text = element_text(size=7)) +
+  geom_smooth(data=obs[6:20,], se=FALSE, method=lm, size=0.5) +
+  geom_abline(intercept=intercept1, slope=slope1, color="green")
+```
+
+## Step 5 - repeat steps to create more imputations
+
+We then repeat these steps to create as many imputations as desired:
+
+- draw new parameter values from Bayesian posterior
+- draw new predicted values
+- draw new imputations around predicted values
+
+```{r, echo=FALSE}
+intercept2 <- coefficients(ccaFit)[1]-0.5
+slope2 <- coefficients(ccaFit)[2]+0.3
+obs <- rbind(obs, data.frame(x=x[1:5], y=intercept2+slope2*x[1:5], ymiss="Imp 2 predicted Y"))
+obs <- rbind(obs, data.frame(x=x[1:5], y=intercept2+slope2*x[1:5]+rnorm(5,mean=0,sd=1), ymiss="Imputation 2"))
+```
+
+```{r, echo=FALSE, fig.height=2, fig.width=4,message=FALSE, warning=FALSE}
+ggplot(obs, aes(x=x, y=y, color=ymiss)) + 
+  geom_point(size=1)+
+  scale_color_manual(values=c("red", "blue", "green", "green4", "magenta", "maroon")) +
+  theme(text = element_text(size=7)) +
+  geom_smooth(data=obs[6:20,], se=FALSE, method=lm, size=0.5) +
+  geom_abline(intercept=intercept1, slope=slope1, color="green") +
+  geom_abline(intercept=intercept2, slope=slope2, color="magenta")
+```
+
+
+## Algorithm
+
+- Estimate $\sigma^{2},\beta_{0},\beta_{1}$ using the $n_{0}$ complete case analysis, giving $\hat{\sigma}^{2},\hat{\beta}_{0},\hat{\beta}_{1}$.
+- For $m=1,..,M$
+- Draw from posterior distribution of parameters:
+  1. Draw a $\sigma^{2(m)}$ from $\hat\sigma^2 (n_0-2) / \chi^2_{n_0-2}.$
+	2. Draw $(\beta^{m}_0,\beta^{m}_1)$ from 
+	$$N \left\{ 
+	\begin{pmatrix}\hat\beta_0 \\\hat\beta_1 \end{pmatrix},
+	\sigma^{2(m)} (W^TW)^{-1} \right\}
+	$$
+- If $Y$ is missing for subject $i$, impute $Y_{i}$ by
+$$
+Y^{m}_{i} = \beta^{m}_{0} + \beta^{m}_{1} X_{i} + \epsilon^{m}_{i}
+$$
+where $\epsilon^{m}_{i} \sim N(0, \sigma^{2(m)})$
+
+## Things to note
+
+- Imputations are constructed by adding normal errors to the predicted value of $Y$ based on the value of $X$.
+- The variance of these errors depends on the estimated error variance in the model fitted to the complete cases.
+- For a given value of $X$, the predicted values are different for each imputation, because a different line is used for each imputation.
+- The new imputation model parameter values are draws from their posterior distribution, under standard non-informative priors.
+
+## Imputation using other types of model
+
+- Imputation can also be performed using other types of regression model.
+- These can be chosen so that they are suitable for the variable being imputed.
+- e.g. logistic regression for binary variables.
+- The principles outlined remain the same.
+- The only changes are that we take a draw from a different distribution depending on the type of regression model.
+
+## Analysis of imputed datasets
+
+- As described above, we have imputed $M$ complete data sets.
+- We analyse each of them in the usual way (i.e. using the model intended for the complete data) giving us $M$ estimates of the original quantity of interest, say $\theta.$ Denote these estimates $\hat\theta_1,\dots,\hat\theta_M.$
+- The analysis of each imputed data set will also give an estimate of the variance of the estimate $\hat\theta_m,$ say $\hat\sigma^2_m.$ Again, this is the usual variance estimate from the model.
+- We combine these quantities to get our overall estimate and its variance using certain rules, developed by Rubin.
+
+## Combining the estimates - Rubin's rules
+
+Let the multiple imputation estimate of $\theta$ be $\hat\theta_{MI}.$ Then
+
+$$\hat\theta_{MI} =\frac{1}{M} \sum_{m=1}^M \hat\theta_m.$$
+
+Further define the within imputation and between imputation components of
+variance by
+$$\hat\sigma^2_w = \frac{1}{M} \sum _{m=1}^M \hat\sigma^2_m,\quad\mbox{ and } \quad \hat\sigma^2_b = \frac{1}{M-1} \sum_{m=1}^M (\hat\theta_m - \hat\theta_{MI} )^2,$$
+Then 
+$$\hat\sigma^2_{MI} =  \left( 1 + \frac{1}{M} \right) \hat\sigma^2_b + \hat\sigma^2_w,$$
+so the estimated standard error of $\hat\theta_{MI}$ is $\hat\sigma_{MI}.$
+
+## Inference for $\theta$
+
+To test the null hypothesis $\theta=\theta_0,$ compare
+$$ \frac{\hat\theta_{MI} - \theta_0}{\hat\sigma_{MI}} \mbox{\quad to \quad} t_\nu,$$
+where 
+$$\nu = (M-1) \left[ 1 + \frac{ \hat\sigma^2_w}{(1 + 1/M)\hat\sigma^2_b}\right]^2.$$
+Thus, if $t_{\nu,0.975}$ is the 97.5\% point of the $t$ distribution with $\nu$
+degrees of freedom, the 95\% confidence interval is 
+$$(\hat\theta_{MI}-\hat\sigma_{MI} t_{\nu,0.975},\quad \hat\theta_{MI}+\hat\sigma_{MI} t_{\nu,0.975})$$
+
+## Software
+
+- As we shall see, the software automates the previous steps.
+- Although these steps are fairly automated, our input is critical.
+- There are various modelling choices to be made, and poor choices can lead to invalid inferences.
+
+## The attractions of MI
+
+- MI is attractive, because once we have imputed the missing data, we can analyse the completed data sets as we would have done if no data were missing.
+- It is particularly useful in messy complex datasets, with missing values in multiple variables, where alternative approaches are less readily applied.
+- Compared to CCA, MI can often give estimates with improved precision.
+
+## When is MI is the same as complete case analysis?
+
+- If missingness is only in the outcome, and the analysis model is the same as the imputation model (i.e. no auxiliary variables), MI gives you (essentially) the same estimates as complete case analysis.
+- So in this special case, there is no point in doing MI.
+
+## Likelihood based analyses
+
+- Also note that some methods (e.g. linear mixed models) analyse all observed data using maximum likelihood.
+- They are valid under MAR, and are efficient.
+- e.g. in longitudinal trials with missingness in outcomes, there may be no need to do MI.
+- But MI can incorporate auxiliary variables, which is often very useful.
+
+
+## Some papers on MI
+
+[@Schafer:1999]
+
+[@Buuren:2007]
+
+[@Kenward/Carpenter:2007]
+
+[@Sterne/White/Carlin:2009]
+
+There are of course many many more...
+
+## Some books on missing data and MI
+
+Statistical Analysis with Missing Data [@little2019statistical] -- excellent book on analysis with missing data. 3rd edition recently released.
+
+Flexible Imputation of Missing Data [@van2018flexible] -- A particular focus on [mice]( https://cran.r-project.org/web/packages/mice/index.html) package in R. 2nd edition recently release. Free online version [here](https://stefvanbuuren.name/fimd/)
+
+Multiple Imputation and its Application [@CarpenterKenward2013] -- includes coverage of imputation with survival data, multi-level data, non-linearities and interactions, sensitivity analyses.
+
+## Summary
+
+- Ad-hoc methods attempt to deal with the computational difficulty introduced by missing data.
+- But they generally do not give valid inferences under plausible assumptions.
+- MI gives valid inferences if data are MAR and the imp. model is correctly specified.
+- So far though we have only considered the case of a single partially observed continuous variable.
+- In the next session we will explore its extension to more realistic settings.
+
+## References {.allowframebreaks}

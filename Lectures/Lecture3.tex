@@ -1,0 +1,888 @@
+\PassOptionsToPackage{unicode=true}{hyperref} % options for packages loaded elsewhere
+\PassOptionsToPackage{hyphens}{url}
+\PassOptionsToPackage{dvipsnames,svgnames*,x11names*}{xcolor}
+%
+\documentclass[ignorenonframetext,]{beamer}
+\usepackage{pgfpages}
+\setbeamertemplate{caption}[numbered]
+\setbeamertemplate{caption label separator}{: }
+\setbeamercolor{caption name}{fg=normal text.fg}
+\beamertemplatenavigationsymbolsempty
+% Prevent slide breaks in the middle of a paragraph:
+\widowpenalties 1 10000
+\raggedbottom
+\setbeamertemplate{part page}{
+\centering
+\begin{beamercolorbox}[sep=16pt,center]{part title}
+  \usebeamerfont{part title}\insertpart\par
+\end{beamercolorbox}
+}
+\setbeamertemplate{section page}{
+\centering
+\begin{beamercolorbox}[sep=12pt,center]{part title}
+  \usebeamerfont{section title}\insertsection\par
+\end{beamercolorbox}
+}
+\setbeamertemplate{subsection page}{
+\centering
+\begin{beamercolorbox}[sep=8pt,center]{part title}
+  \usebeamerfont{subsection title}\insertsubsection\par
+\end{beamercolorbox}
+}
+\AtBeginPart{
+  \frame{\partpage}
+}
+\AtBeginSection{
+  \ifbibliography
+  \else
+    \frame{\sectionpage}
+  \fi
+}
+\AtBeginSubsection{
+  \frame{\subsectionpage}
+}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provides euro and other symbols
+\else % if luatex or xelatex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage[]{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\IfFileExists{parskip.sty}{%
+\usepackage{parskip}
+}{% else
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{
+            pdftitle={Lecture 3 - MI for multiple variables and MI practicalities},
+            pdfauthor={Jonathan Bartlett (thestatsgeek.com)},
+            colorlinks=true,
+            linkcolor=blue,
+            filecolor=Maroon,
+            citecolor=Blue,
+            urlcolor=blue,
+            breaklinks=true}
+\urlstyle{same}  % don't use monospace font for urls
+\newif\ifbibliography
+\usepackage{longtable,booktabs}
+\usepackage{caption}
+% These lines are needed to make table captions work with longtable:
+\makeatletter
+\def\fnum@table{\tablename~\thetable}
+\makeatother
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{0}
+
+% set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+
+
+\title{Lecture 3 - MI for multiple variables and MI practicalities}
+\providecommand{\subtitle}[1]{}
+\subtitle{Multiple imputation for missing data}
+\author{\href{https://thestatsgeek.com}{Jonathan Bartlett (thestatsgeek.com)}}
+\date{Oslo, November 2019}
+
+\begin{document}
+\frame{\titlepage}
+
+\begin{frame}
+\tableofcontents[hideallsubsections]
+\end{frame}
+\begin{frame}{Overview}
+\protect\hypertarget{overview}{}
+
+\begin{itemize}
+\tightlist
+\item
+  MI provides valid estimates under the MAR assumption \textbf{and}
+  provided the imputation model is reasonably correctly specified.
+\item
+  If only one variable has missing values, this may be relatively
+  simple.
+\item
+  Commonly though, there may be missing values in many variables, and
+  the variables may be a mixture of continuous and discrete, making the
+  imputation process more difficult.
+\item
+  In this session we'll look at the two main approaches to imputation in
+  this setting, and some of the important practicalities which arise.
+\end{itemize}
+
+\end{frame}
+
+\hypertarget{more-on-mar}{%
+\section{More on MAR}\label{more-on-mar}}
+
+\begin{frame}{More on MAR}
+\protect\hypertarget{more-on-mar-1}{}
+
+\begin{itemize}
+\tightlist
+\item
+  With one variable partially observed variable \(Y\), the definition of
+  MAR is (hopefully) clear - the probability that \(Y\) is missing is
+  independent of its value, conditional on other fully observed
+  variables \(\mathbf X=(X_{1},X_{2},..,X_{q})\) which are being used in
+  the MI analysis.
+\item
+  Now let's consider the case where the partially observed variable
+  \(\mathbf Y=(Y_{1},Y_{2},..,Y_{p})\) consists of multiple components.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{MAR with monotone missingness}
+\protect\hypertarget{mar-with-monotone-missingness}{}
+
+\begin{itemize}
+\tightlist
+\item
+  A special type of missingness pattern is so called monotone
+  missingness.
+\item
+  This means that we can order the components of \(\mathbf Y\) such that
+  if \(Y_{j}\) is observed for an observation, all previous components
+  are also observed.
+\item
+  Monotone patterns most commonly occur in longitudinal studies subject
+  to dropout:
+\end{itemize}
+
+\begin{longtable}[]{@{}lllll@{}}
+\toprule
+id & 1 & 2 & 3 & 4\tabularnewline
+\midrule
+\endhead
+1 & x & x & x & x\tabularnewline
+2 & x & . & . & .\tabularnewline
+3 & x & x & . & .\tabularnewline
+4 & x & x & x & .\tabularnewline
+\bottomrule
+\end{longtable}
+
+\end{frame}
+
+\begin{frame}{MAR with monotone missingness}
+\protect\hypertarget{mar-with-monotone-missingness-1}{}
+
+\begin{itemize}
+\tightlist
+\item
+  In this case the ordering of variables is on the basis of time (it
+  doesn't have to be ordered by time).
+\item
+  When missingness is monotone, MAR can be shown (see for example
+  (Tsiatis \protect\hyperlink{ref-Tsiatis:2006}{2006}) to mean that the
+  probability of dropout at time \(t\) doesn't depend on the current or
+  future values, conditional on the past (values before \(t\)).
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{MAR with non-monotone missingness}
+\protect\hypertarget{mar-with-non-monotone-missingness}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Often in datasets (see the practical) the missingness pattern is not
+  monotone.
+\item
+  Even in longitudinal studies, in addition to dropout, one might have
+  intermittent missingness.
+\item
+  With non-monotone patterns the meaning of MAR becomes more complex -
+  the probability of each pattern occurring only depends on the data
+  observed under that pattern (Robins and Gill
+  \protect\hyperlink{ref-Robins1997}{1997}).
+\item
+  We will not dwell further on this here, but see the practical for more
+  discussion of this issue.
+\end{itemize}
+
+\end{frame}
+
+\hypertarget{imputation-from-a-joint-model}{%
+\section{Imputation from a joint
+model}\label{imputation-from-a-joint-model}}
+
+\begin{frame}[fragile]{Imputation with one partially observed variable}
+\protect\hypertarget{imputation-with-one-partially-observed-variable}{}
+
+\begin{itemize}
+\tightlist
+\item
+  In the previous session, we considered a situation where one variable
+  \(Y\) has missing values, but other variables \(\mathbf X\) are fully
+  observed.
+\end{itemize}
+
+\textbf{\(Y\) need not be the outcome in our final model of interest!}
+
+\begin{itemize}
+\tightlist
+\item
+  We used a linear regression model for \(Y|\mathbf X\) to impute the
+  missing values of \(Y\). This assumes \(Y|\mathbf X\) is normal, with
+  mean a linear function of \(\mathbf X\).
+\item
+  If \(Y\) were binary, we can similarly use a logistic regression model
+  to impute the missing values of \(Y\), given \(\mathbf X\) (e.g.
+  \texttt{sen} in the class size study)
+\item
+  For categorical \(Y\), we can use an ordered or multinomial logistic
+  model for \(Y|\mathbf X\).
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Imputation with multiple partially observed variables}
+\protect\hypertarget{imputation-with-multiple-partially-observed-variables}{}
+
+\begin{itemize}
+\tightlist
+\item
+  More typically in epidemiology, we may have more than one variable
+  with missing values.
+\item
+  Extending our previous notation, we now let \(\mathbf Y\) denote the
+  vector of variables which have missing values, and let \(\mathbf X\)
+  denote the fully observed variables.
+\item
+  To perform multiple imputation, we must specify a model for the joint
+  or multivariate distribution, \(f(\mathbf Y|\mathbf X)\).
+\item
+  This is tricky in general, particularly if \(\mathbf Y\) contains a
+  mixture of continuous and categorical variables.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Imputation with multiple partially observed variables}
+\protect\hypertarget{imputation-with-multiple-partially-observed-variables-1}{}
+
+\begin{itemize}
+\tightlist
+\item
+  One of the most important multivariate distributions is the
+  multivariate normal (MVN).
+\item
+  MI using the MVN was developed early on.
+\end{itemize}
+
+\begin{eqnarray*}
+\mathbf Y \sim N(\boldsymbol \mu(\mathbf X), \boldsymbol \Sigma)
+\end{eqnarray*}
+
+\begin{itemize}
+\item
+  For the MVN, each component of \(Y\) is normal, and \(Y_{j}|Y_{-j}\)
+  is a linear regression model, where \(Y_{-j}\) denotes all of the
+  components of \(\mathbf Y\) except the \(j\)th.
+\item
+  See (Schafer \protect\hyperlink{ref-Schafer:1997}{1997}) for more
+  details.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Imputation with the multivariate normal model}
+\protect\hypertarget{imputation-with-the-multivariate-normal-model}{}
+
+\begin{itemize}
+\tightlist
+\item
+  What if we have missing values in non-normal, or even categorical
+  variables?
+\item
+  Early advice was that skewed variables could be transformed to
+  (approximate) normality before imputation and then back transformed
+  afterwards for analysis.
+\item
+  However, it is important to be aware that if you do this, the
+  functional relationships assumed at the imputation stage are changed.
+\item
+  This has led to one paper recommending against the approach, and
+  instead suggesting that if the MVN model is being used to just impute
+  ignoring the skewness (Hippel
+  \protect\hyperlink{ref-vonHippel2013}{2013}).
+\item
+  Of course this approach isn't perfect either -- imputing from a
+  mis-specified model will in general result in biased inferences, but
+  perhaps less biased than if we had used the transformation approach.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Imputation with the multivariate normal model}
+\protect\hypertarget{imputation-with-the-multivariate-normal-model-1}{}
+
+\begin{itemize}
+\tightlist
+\item
+  For binary variables, some work has been done investigating imputation
+  assuming normality, comparing various rounding strategies. See
+  (Bernaards, Belin, and Schafer
+  \protect\hyperlink{ref-Bernaardsux2fBelin:2007}{2007}) and (Lee and
+  Carlin \protect\hyperlink{ref-Leeux2fCarlin:2010}{2010}).
+\item
+  If the rounding is done carefully, the results can be (somewhat
+  surprisingly) quite good.
+\item
+  However, if \(\mathbf Y\) contains a mixture of continuous and
+  categorical variables, using the MVN model is tricky.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Joint models for mixtures of continuous and categorical
+data}
+\protect\hypertarget{joint-models-for-mixtures-of-continuous-and-categorical-data}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Log-linear models were proposed for imputing categorical data.
+\item
+  With a mixture of continuous and categorical data, the general
+  location model was proposed.
+\item
+  This is available in the R package
+  \href{https://cran.r-project.org/package=mix}{mix}.
+\item
+  These approaches have not however been widely adopted by researchers.
+  This may be because for log-linear models one must usually carefully
+  choose which interaction parameters to set to zero, and this is quite
+  tricky.
+\item
+  For more details on the model theory, again see (Schafer
+  \protect\hyperlink{ref-Schafer:1997}{1997}).
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Joint models for mixtures of continuous and categorical
+data}
+\protect\hypertarget{joint-models-for-mixtures-of-continuous-and-categorical-data-1}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Recently there has been further development of more flexible joint
+  models for imputation.
+\item
+  \href{https://cran.r-project.org/package=jomo}{jomo} uses a joint
+  model with a latent multivariate normal structure.
+\item
+  \href{https://cran.r-project.org/package=JointAI}{jointAI} uses a
+  joint model factorised as a product of univariate conditional models.
+\item
+  I expect both to be increasingly used in the coming years in applied
+  research.
+\end{itemize}
+
+\end{frame}
+
+\hypertarget{imputation-by-chained-equations}{%
+\section{Imputation by chained
+equations}\label{imputation-by-chained-equations}}
+
+\begin{frame}{Imputation by chained equations / full conditional
+specification}
+\protect\hypertarget{imputation-by-chained-equations-full-conditional-specification}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Imputation by chained equations (MICE) or full conditional
+  specification (FCS) is an alternative to joint model imputation.
+\item
+  It was proposed independently by (van Buuren, Boshuizen, and Knook
+  \protect\hyperlink{ref-VanBuurenux2fBoshuizenux2fKnook:1999}{1999})
+  and (Raghunathan et al.
+  \protect\hyperlink{ref-Raghunathanux2fLepkowskiux2fVan-Hoewykux2fSolenberger:2001}{2001}).
+\item
+  Rather than directly specify a joint/multivariate model, we specify a
+  series of conditional models.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Imputation by chained equations / full conditional
+specification}
+\protect\hypertarget{imputation-by-chained-equations-full-conditional-specification-1}{}
+
+\begin{itemize}
+\tightlist
+\item
+  e.g.~suppose \(Y_{1}\), \(Y_{2}\) and \(Y_{3}\) have missing values,
+  and we have fully observed variables \(\mathbf X\).
+\item
+  Rather than specify a joint imputation model for
+  \(f(Y_{1},Y_{2},Y_{3}|\mathbf X)\) directly, we specify models for:
+  \begin{align*}
+            f(Y_{1}|Y_{2},Y_{3},\mathbf X) \\
+            f(Y_{2}|Y_{1},Y_{3},\mathbf X) \\
+            f(Y_{3}|Y_{1},Y_{2},\mathbf X) \\
+            \end{align*}
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{MICE/FCS algorithm}
+\protect\hypertarget{micefcs-algorithm}{}
+
+For imputation \(m=1,..,M\):
+
+\begin{itemize}
+\tightlist
+\item
+  Initially impute missing values in \(Y_{1}\), \(Y_{2}\) and \(Y_{3}\)
+  by randomly sampling from the observed values.
+\item
+  For iteration \(t=1,..,T\):
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Impute missing values in \(Y_{1}\) \textbf{once} using model for
+    \(f(Y_{1}|Y_{2},Y_{3},\mathbf X)\) (using obs. \(Y_{1}\) values and
+    observed and imputed values of \(Y_{2}\) and \(Y_{3}\)).
+  \item
+    Impute missing values in \(Y_{2}\) \textbf{once} using model for
+    \(f(Y_{2}|Y_{1},Y_{3},\mathbf X)\) (using obs. \(Y_{2}\) values and
+    observed and imputed values of \(Y_{1}\) and \(Y_{3}\)).
+  \item
+    Impute missing values in \(Y_{3}\) \textbf{once} using model for
+    \(f(Y_{3}|Y_{1},Y_{2},\mathbf X)\) (using obs. \(Y_{3}\) values and
+    observed and imputed values of \(Y_{1}\) and \(Y_{2}\)).
+  \end{itemize}
+\item
+  Current imputed values of missing values used to form \(m\)th imputed
+  dataset.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Strengths of MICE/FCS imputation}
+\protect\hypertarget{strengths-of-micefcs-imputation}{}
+
+\begin{itemize}
+\tightlist
+\item
+  The major advantage of MICE/FCS imputation (over `joint model'
+  imputation) is the ability to specify different model types for each
+  variable.
+\item
+  It has become an extremely popular approach for performing MI (Buuren
+  \protect\hyperlink{ref-Buuren:2007}{2007}).
+\item
+  e.g.~logistic for binary variables, Poisson for count variables (in
+  Stata), multinomial logistic for unordered categorical variables.
+\item
+  It can do things more easily than joint model imputation, such as
+  imputing certain variables only in subgroups.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Theoretical deficiency of MICE/FCS}
+\protect\hypertarget{theoretical-deficiency-of-micefcs}{}
+
+\begin{itemize}
+\tightlist
+\item
+  A theoretical issue with MICE/FCS is that there is no guarantee that
+  the algorithm draws imputations from a well defined joint/multivariate
+  model.
+\item
+  Recent work by two groups have identified certain conditions when it
+  does (Hughes et al. \protect\hyperlink{ref-Hughes2014}{2014}; Liu et
+  al. \protect\hyperlink{ref-Liu2013}{2013}).
+\item
+  The key condition is that the conditional models are
+  \textbf{compatible}.
+\item
+  This means that there exist multivariate distributions whose
+  conditionals are those specified in MICE/FCS.
+\item
+  Checking compatibility is not easy. In practice, we should be aware of
+  the issue, and to situations where incompatibly could seriously
+  mislead (see next session).
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Joint modelling versus MICE/FCS}
+\protect\hypertarget{joint-modelling-versus-micefcs}{}
+
+\begin{itemize}
+\tightlist
+\item
+  A number of papers have compared the joint modelling approach with
+  chained equations with real examples.
+\item
+  (Buuren \protect\hyperlink{ref-Buuren:2007}{2007}) applied both
+  methods to some growth data, and concluded that chained equations was
+  preferable to joint modelling.
+\item
+  (Lee and Carlin \protect\hyperlink{ref-Leeux2fCarlin:2010}{2010})
+  found that both methods worked well in a realistic epidemiological
+  setting.
+\item
+  In settings with continuous and categorical variables with missing
+  values, at least in terms of availability of flexible software,
+  MICE/FCS seems preferable (in my opinion).
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}[fragile]{MICE/FCS with monotone missingness}
+\protect\hypertarget{micefcs-with-monotone-missingness}{}
+
+\begin{itemize}
+\tightlist
+\item
+  If the pattern is monotone, there is no need to `cycle' or iterate in
+  MICE/FCS.
+\item
+  This is because one can first impute \(Y2|Y1\), then \(Y3|Y2,Y1\),
+  \ldots{}
+\item
+  Stata's MICE/FCS command \texttt{mi\ impute\ chained} checks for this,
+  and if it finds a monotone pattern, imputes sequentially.
+\item
+  In R, \texttt{mice} has an option (visitSequence) to impute in order
+  of increasing missingness (i.e.~the same thing).
+\item
+  The advantage of this is that we do not need to worry about
+  convergence of MICE/FCS.
+\item
+  We also don't have to worry about incompatibility between the
+  conditional models, and the theoretical weakness of MICE/FCS.
+\end{itemize}
+
+\end{frame}
+
+\hypertarget{variable-selection-number-of-imputations-and-model-checking}{%
+\section{Variable selection, number of imputations, and model
+checking}\label{variable-selection-number-of-imputations-and-model-checking}}
+
+\begin{frame}{Which variables should be included in the imputation
+model?}
+\protect\hypertarget{which-variables-should-be-included-in-the-imputation-model}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Usually, all variables which will be used in our model of interest /
+  analysis model should be included in the imputation model.
+\item
+  In terms of creating the imputations, there is no conceptual
+  distinction between variables which are covariates or the outcome in
+  your final model of interest.
+\item
+  If we are imputing missing covariates, the outcome variable
+  \textbf{must} be included, to ensure that the imputed covariate values
+  have the correct association with the outcome.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Auxiliary variables}
+\protect\hypertarget{auxiliary-variables}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Often we may have variables \(Z\) which are not involved in our model
+  of interest.
+\item
+  Recall that MI is only valid under MAR, which we cannot verify based
+  on the observed data.
+\item
+  If a variable \(Z\) is predictive of missingness in another variable
+  we are imputing, \(Z\) should be included in the imputation model, to
+  increase the likelihood that the MAR assumption is satisfied.
+\item
+  Even if \(Z\) is not predictive of missingness, if it is predictive of
+  the partially observed variables \(\mathbf Y\), we should include it
+  in the imputation model. Doing so will reduce the uncertainty in
+  imputing missing values, thus increasing statistical efficiency.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Auxiliary variables}
+\protect\hypertarget{auxiliary-variables-1}{}
+
+\begin{itemize}
+\tightlist
+\item
+  The option to include auxiliary variables in the imputation model at
+  the imputation stage but omit it from the analysis stage is a big
+  advantage of MI
+\item
+  e.g.~we may have a variable on the causal pathway which we do not want
+  to condition on in the analysis
+\item
+  But we can include it in the imputation stage if we think it will
+  improve MAR or is correlated with variables we are imputing
+\item
+  Some datasets now have many hundreds of variables. In these cases one
+  may have to be more judicious in selecting auxiliary variables
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{How many imputations?}
+\protect\hypertarget{how-many-imputations}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Earlier papers/books suggested \(M\) could be a small as 3-5
+\item
+  Validity of inferences is not affected by choice of \(M\)
+\item
+  Efficiency is improved (somewhat) by increasing \(M\)
+\item
+  Choose \(M\) so that Monte-Carlo error is sufficiently small \%(see
+  Practical for how to assess this in Stata)
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Model checking}
+\protect\hypertarget{model-checking}{}
+
+\begin{itemize}
+\tightlist
+\item
+  For valid inferences we need the imputation models to be correctly
+  specified.
+\item
+  Checking this is not easy.
+\item
+  One approach, when using MICE/FCS, is to check the fit of each
+  conditional model based on its complete case fit.
+\item
+  Being based on the complete cases, these fits may themselves be
+  biased.
+\item
+  However, we will probably be able to detect and rectify any grossly
+  mis-specified models.
+\item
+  Examining plots of imputed values is also sensible, and can be used to
+  diagnose serious issues.
+\end{itemize}
+
+\end{frame}
+
+\hypertarget{a-cautionary-example}{%
+\section{A cautionary example}\label{a-cautionary-example}}
+
+\begin{frame}{The QRISK study}
+\protect\hypertarget{the-qrisk-study}{}
+
+\begin{itemize}
+\tightlist
+\item
+  The QRISK study aimed to derive a new cardiovascular disease (CVD)
+  risk score for the UK, based on routinely collected data from general
+  practice (Hippisley-Cox et al.
+  \protect\hyperlink{ref-Hippisley-Cox2007}{2007}\protect\hyperlink{ref-Hippisley-Cox2007}{a})
+\item
+  The score was derived using data from 1.28 million patients registered
+  at UK GP practices between 1995 and 2007, who were free from CVD at
+  registration
+\item
+  The outcome of interest was time to first recorded diagnosis of CVD
+\item
+  Cox proportional hazards models were used to model time to CVD, as a
+  function of risk factors measured at registration
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}[fragile]{Missing data in QRISK}
+\protect\hypertarget{missing-data-in-qrisk}{}
+
+\begin{itemize}
+\tightlist
+\item
+  Inevitably there was substantial missingness in `baseline' risk factor
+  data
+\item
+  In particular, 70\% of subjects had HDL cholesterol missing
+\item
+  The investigators used MI to deal with missing baseline data, using
+  the \texttt{ice} (the forerunner to \texttt{mi\ impute\ chained})
+  command in Stata
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Cholesterol and CVD}
+\protect\hypertarget{cholesterol-and-cvd}{}
+
+\begin{itemize}
+\tightlist
+\item
+  In the final model, the adjusted hazard ratio for the ratio of total
+  to HDL cholesterol was 1.001 (95\% 0.999 to 1.002)
+\item
+  This suggested that, after adjusting for other baseline risk factors,
+  cholesterol had no effect on CVD risk
+\item
+  Given that cholesterol has been shown to have an independent effect on
+  CVD risk in many previous studies, this result was unexpected
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Cholesterol and CVD}
+\protect\hypertarget{cholesterol-and-cvd-1}{}
+
+\begin{itemize}
+\tightlist
+\item
+  A complete case analysis did show evidence for an effect of
+  cholesterol
+\item
+  It turned out that when imputing the missing values, although the time
+  to CVD or censoring was included in the imputation model, the
+  censoring indicator (1=CVD, 0=censored) had inadvertently not been
+  used
+\item
+  The imputed cholesterol values thus did not have the correct
+  association with time to CVD, resulting in there being no evidence of
+  an independent effect
+\item
+  Re-running with a more appropriate imputation model, an independent
+  effect of cholesterol was found (Hippisley-Cox et al.
+  \protect\hyperlink{ref-Hippisley-Cox2007a}{2007}\protect\hyperlink{ref-Hippisley-Cox2007a}{b})
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Summary}
+\protect\hypertarget{summary}{}
+
+\begin{itemize}
+\tightlist
+\item
+  The meaning of MAR is clear with monotone patterns, but is more
+  complex with non-monotone patterns.
+\item
+  Joint modelling and MICE/FCS are the two broad imputation approaches
+  with multivariate data.
+\item
+  We have discussed practical issues, including number of imputations,
+  variable choice, and model checking
+\item
+  Important to remember: obtaining reasonable results depends on
+
+  \begin{itemize}
+  \tightlist
+  \item
+    the MAR assumption holding (at least approximately)
+  \item
+    the imputation models used being correctly (at least approximately)
+    specified
+  \end{itemize}
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}[allowframebreaks]{References}
+\protect\hypertarget{references}{}
+
+\hypertarget{refs}{}
+\leavevmode\hypertarget{ref-Bernaardsux2fBelin:2007}{}%
+Bernaards, C A, T R Belin, and J L Schafer. 2007. ``Robustness of a
+Multivariate Normal Approximation for Imputation of Incomplete Binary
+Data.'' \emph{Statistics in Medicine} 26: 1368--82.
+
+\leavevmode\hypertarget{ref-Buuren:2007}{}%
+Buuren, S van. 2007. ``Multiple Imputation of Discrete and Continuous
+Data by Fully Conditional Specification.'' \emph{Statistical Methods in
+Medical Research} 16: 219--42.
+
+\leavevmode\hypertarget{ref-vonHippel2013}{}%
+Hippel, P T von. 2013. ``Should a Normal Imputation Model Be Modified to
+Impute Skewed Variables?'' \emph{Sociological Methods \& Research} 42
+(1): 105--38.
+
+\leavevmode\hypertarget{ref-Hippisley-Cox2007}{}%
+Hippisley-Cox, J, C Coupland, Y Vinogradova, J Robson, M May, and P
+Brindle. 2007a. ``Derivation and validation of QRISK, a new
+cardiovascular disease risk score for the United Kingdom: prospective
+open cohort study.'' \emph{British Medical Journal} 335: 136.
+
+\leavevmode\hypertarget{ref-Hippisley-Cox2007a}{}%
+---------. 2007b. ``QRISK authors response {[}electronic response{]}.''
+\emph{British Medical Journal} 335: 136.
+
+\leavevmode\hypertarget{ref-Hughes2014}{}%
+Hughes, R A, I R White, S R Seaman, J R Carpenter, K Tilling, and J A C
+Sterne. 2014. ``Joint Modelling Rationale for Chained Equations.''
+\emph{BMC Medical Research Methodology} 14 (1). BioMed Central Ltd: 28.
+
+\leavevmode\hypertarget{ref-Leeux2fCarlin:2010}{}%
+Lee, K J, and J B Carlin. 2010. ``Multiple Imputation for Missing Data:
+Fully Conditional Specification Versus Multivariate Normal Imputation.''
+\emph{American Journal of Epidemiology} 171: 624--32.
+
+\leavevmode\hypertarget{ref-Liu2013}{}%
+Liu, J., A. Gelman, J. Hill, Y. S. Su, and J. Kropko. 2013. ``On the
+Stationary Distribution of Iterative Imputations.'' \emph{Biometrika}
+101: 155--73.
+
+\leavevmode\hypertarget{ref-Raghunathanux2fLepkowskiux2fVan-Hoewykux2fSolenberger:2001}{}%
+Raghunathan, Trivellore E, James M Lepkowski, John Van Hoewyk, and Peter
+Solenberger. 2001. ``A Multivariate Technique for Multiply Imputing
+Missing Values Using a Sequence of Regression Models.'' \emph{Survey
+Methodology} 27: 85--95.
+
+\leavevmode\hypertarget{ref-Robins1997}{}%
+Robins, J M, and R D Gill. 1997. ``Non-Response Models for the Analysis
+of Non-Monotone Ignorable Missing Data.'' \emph{Statistics in Medicine}
+16: 39--56.
+
+\leavevmode\hypertarget{ref-Schafer:1997}{}%
+Schafer, J L. 1997. \emph{Analysis of incomplete multivariate data}.
+London: Chapman; Hall.
+
+\leavevmode\hypertarget{ref-Tsiatis:2006}{}%
+Tsiatis, A A. 2006. \emph{Semiparametric Theory and Missing Data}.
+Springer, New York.
+
+\leavevmode\hypertarget{ref-VanBuurenux2fBoshuizenux2fKnook:1999}{}%
+van Buuren, S., H C Boshuizen, and D L Knook. 1999. ``Multiple
+Imputation of Missing Blood Presure Covariates in Survival Analysis.''
+\emph{Statistics in Medicine} 18: 681--94.
+
+\end{frame}
+
+\end{document}

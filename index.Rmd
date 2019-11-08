@@ -1,0 +1,38 @@
+---
+title: "Multiple imputation for missing data"
+date: "November 2019, Oslo"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This course takes place 12th November 2019 in Oslo, Norway.
+
+Course instructor: Jonathan Bartlett, [University of Bath](http://www.bath.ac.uk), [thestatsgeek.com](https://thestatsgeek.com)
+
+## Lecture slides
+
+* [Lecture 1](Lectures/lecture1.pdf)
+* [Lecture 2](Lectures/lecture2.pdf)
+* [Lecture 3](Lectures/lecture3.pdf)
+* [Lecture 4](Lectures/lecture4.pdf)
+
+## Datasets for practicals
+The following zip file contains the datasets needed for the practicals.
+
+[Datasets](datasets.zip)
+
+## Practicals
+
+* [Practical 1](practical1stata.html)
+* [Practical 2](practical2stata.html)
+* [Practical 3](practical3stata.html)
+* [Practical 4](practical4stata.html)
+
+## Practical solutions
+* [Solutions 1](solution1stata.html)
+* [Solutions 2](solution2stata.html)
+* [Solutions 3](solution3stata.html)
+* [Solutions 4](solution4stata.html)

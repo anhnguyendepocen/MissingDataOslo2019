@@ -1,0 +1,972 @@
+<h1><a href="#practical-4-solutions" id="practical-4-solutions">Practical 4 solutions</a></h1>
+<h2><a href="#introduction" id="introduction">Introduction</a></h2>
+<h2><a href="#substantive-model-interactions" id="substantive-model-interactions">Substantive model interactions</a></h2>
+<pre><code>. use &quot;nhanesMort.dta&quot;, clear
+(Written by R.              )
+
+</code></pre>
+<pre><code>. reg sbp i.gender age i.ethnicity waist_circum weight total_chol hdl i.ALQ150 c.waist_circum#i.ALQ150
+
+      Source |       SS           df       MS      Number of obs   =     3,207
+-------------+----------------------------------   F(12, 3194)     =    131.35
+       Model |   442586.84        12  36882.2367   Prob &gt; F        =    0.0000
+    Residual |  896875.022     3,194  280.799944   R-squared       =    0.3304
+-------------+----------------------------------   Adj R-squared   =    0.3279
+       Total |  1339461.86     3,206   417.79846   Root MSE        =    16.757
+
+---------------------------------------------------------------------------------------
+                  sbp |      Coef.   Std. Err.      t    P&gt;|t|     [95% Conf. Interval]
+----------------------+----------------------------------------------------------------
+               gender |
+              Female  |  -1.536714   .6695516    -2.30   0.022    -2.849509     -.22392
+                  age |   .5941315   .0193235    30.75   0.000     .5562438    .6320193
+                      |
+            ethnicity |
+      Other Hispanic  |   .2408621   1.313193     0.18   0.854    -2.333924    2.815648
+  Non-Hispanic White  |  -2.603666   .7463125    -3.49   0.000    -4.066966   -1.140366
+  Non-Hispanic Black  |    2.82672    .988204     2.86   0.004     .8891417    4.764299
+          Other Race  |   1.843271    1.94363     0.95   0.343    -1.967618    5.654159
+                      |
+         waist_circum |   .1669332   .0517552     3.23   0.001     .0654564      .26841
+               weight |   .0045441    .040492     0.11   0.911    -.0748487     .083937
+           total_chol |   .0249395   .0075558     3.30   0.001     .0101249    .0397542
+                  hdl |    .003941   .0208876     0.19   0.850    -.0370136    .0448956
+             1.ALQ150 |   13.33705   5.113866     2.61   0.009     3.310257    23.36384
+                      |
+ALQ150#c.waist_circum |
+                   1  |  -.1423372   .0508984    -2.80   0.005     -.242134   -.0425403
+                      |
+                _cons |   76.51633    2.97012    25.76   0.000      70.6928    82.33987
+---------------------------------------------------------------------------------------
+
+. est store CCA
+
+</code></pre>
+<p><strong>Given we now have the interaction term <code>waist_circum:ALQ150Yes</code>, how should the coefficients for <code>waist_circum</code>, <code>ALQ150Yes</code> and <code>waist_circum:ALQ150Yes</code> be interpreted?</strong></p>
+<p>The coefficient of <code>waist_circum</code> now represents the average increase in <code>sbp</code> for a 1 unit increase in <code>waist_circum</code> for someone with <code>ALQ150</code> equal to 0 (No). The coefficient of <code>ALQ150</code> now corresponds to the estimated average increase in <code>sbp</code> for Yes vs. No for <code>ALQ150</code> for someone with a <code>waist_circum</code> of zero. Since no one has a zero waist circumference, this is not a very useful value. If we wanted to present these results we would either calculate the appropriate linear transformation of the coefficients to obtain an estimate of the effect of <code>ALQ150</code> for a suitable value of <code>waist_circum</code>, or alternatively we could centre <code>waist_circum</code> at some sensible value before performing any analyses. The interaction term <code>waist_circum#ALQ150Yes</code> represents the additional effect of 1 unit increases in <code>waist_circum</code> for those with <code>ALQ150</code> equal to Yes.</p>
+<h3><a href="#impute-then-transform" id="impute-then-transform">Impute then transform</a></h3>
+<pre><code>. mi set flong
+
+. mi register imputed sbp waist_circum weight total_chol hdl ALQ150
+(1234 m=0 obs. now marked as incomplete)
+
+. mi impute chained (reg) sbp waist_circum weight total_chol hdl (logit) ALQ150, add(10) rseed(21466)
+
+Conditional models:
+            weight: regress weight sbp waist_circum total_chol hdl i.ALQ150
+               sbp: regress sbp weight waist_circum total_chol hdl i.ALQ150
+      waist_circum: regress waist_circum weight sbp total_chol hdl i.ALQ150
+        total_chol: regress total_chol weight sbp waist_circum hdl i.ALQ150
+               hdl: regress hdl weight sbp waist_circum total_chol i.ALQ150
+            ALQ150: logit ALQ150 weight sbp waist_circum total_chol hdl
+
+Performing chained iterations ...
+
+Multivariate imputation                     Imputations =       10
+Chained equations                                 added =       10
+Imputed: m=1 through m=10                       updated =        0
+
+Initialization: monotone                     Iterations =      100
+                                                burn-in =       10
+
+               sbp: linear regression
+      waist_circum: linear regression
+            weight: linear regression
+        total_chol: linear regression
+               hdl: linear regression
+            ALQ150: logistic regression
+
+------------------------------------------------------------------
+                   |               Observations per m             
+                   |----------------------------------------------
+          Variable |   Complete   Incomplete   Imputed |     Total
+-------------------+-----------------------------------+----------
+               sbp |       4285          156       156 |      4441
+      waist_circum |       4274          167       167 |      4441
+            weight |       4384           57        57 |      4441
+        total_chol |       4115          326       326 |      4441
+               hdl |       4114          327       327 |      4441
+            ALQ150 |       3511          930       930 |      4441
+------------------------------------------------------------------
+(complete + incomplete = total; imputed is the minimum across m
+ of the number of filled-in observations.)
+
+</code></pre>
+<p><strong>Now fit the substantive model, including the interaction term, to the imputed datasets, and compare the estimates to the earlier complete case estimates. In particular, how much has the coefficient for the interaction term changed?</strong></p>
+<p>There are some noticeable differences between the estimates. The interaction coefficient is somewhat smaller than in the complete case analysis, and the coefficients for the main effects of <code>waist_circum</code> and <code>ALQ150Yes</code> are also somewhat smaller. These changes are likely due to the way we have imputed the missing data - the interaction has been completely ignored in the imputation process. Thus missing <code>sbp</code> values have been imputed from a linear model assuming no interaction between <code>waist_circum</code> and <code>ALQ150</code>. Moreover, missing values in <code>waist_circum</code> and <code>ALQ150</code> have been imputed assuming no interaction between <code>sbp</code> and <code>ALQ150</code> and between <code>sbp</code> and <code>waist_circum</code>, which are implied by the presence of the <code>waist_circum*ALQ150</code> interaction in our substantive model for <code>sbp</code>.</p>
+<p>This approach to handling interactions (and more generally derived variables) in the substantive model is not really very good.</p>
+<pre><code>. mi estimate, post: reg sbp i.gender age i.ethnicity waist_circum weight /*
+&gt; */ total_chol hdl i.ALQ150 c.waist_circum#i.ALQ150
+
+Multiple-imputation estimates                   Imputations       =         10
+Linear regression                               Number of obs     =      4,441
+                                                Average RVI       =     0.1544
+                                                Largest FMI       =     0.3654
+                                                Complete DF       =       4428
+DF adjustment:   Small sample                   DF:     min       =      72.30
+                                                        avg       =   1,015.54
+                                                        max       =   2,118.60
+Model F test:       Equal FMI                   F(  12, 2342.6)   =     151.76
+Within VCE type:          OLS                   Prob &gt; F          =     0.0000
+
+---------------------------------------------------------------------------------------
+                  sbp |      Coef.   Std. Err.      t    P&gt;|t|     [95% Conf. Interval]
+----------------------+----------------------------------------------------------------
+               gender |
+              Female  |  -.8806703   .6044739    -1.46   0.145    -2.066094    .3047539
+                  age |   .6021884   .0171017    35.21   0.000     .5686404    .6357365
+                      |
+            ethnicity |
+      Other Hispanic  |  -.3460662   1.211047    -0.29   0.775    -2.721352     2.02922
+  Non-Hispanic White  |   -3.10836   .6948034    -4.47   0.000    -4.471007   -1.745713
+  Non-Hispanic Black  |   2.547761   .8708001     2.93   0.003       .84003    4.255492
+          Other Race  |   .7784806   1.632109     0.48   0.633    -2.423513    3.980474
+                      |
+         waist_circum |   .1877815   .0487076     3.86   0.000     .0920388    .2835242
+               weight |  -.0123677   .0371524    -0.33   0.739    -.0853323    .0605968
+           total_chol |   .0269084   .0071411     3.77   0.000     .0128882    .0409286
+                  hdl |   .0038608   .0201068     0.19   0.848    -.0356199    .0433415
+             1.ALQ150 |   10.33461   5.522696     1.87   0.065    -.6702441    21.33946
+                      |
+ALQ150#c.waist_circum |
+                   1  |   -.109141   .0553499    -1.97   0.052    -.2194711    .0011891
+                      |
+                _cons |   75.43918   2.964487    25.45   0.000     69.59434    81.28401
+---------------------------------------------------------------------------------------
+
+. est store MIimpTransform
+
+. est table CCA MIimpTransform
+
+----------------------------------------
+    Variable |    CCA       MIimpTra~m  
+-------------+--------------------------
+      gender |
+     Female  | -1.5367144   -.88067027  
+             |
+         age |  .59413155    .60218843  
+             |
+   ethnicity |
+Other His..  |  .24086211   -.34606621  
+Non-Hispa..  | -2.6036657     -3.10836  
+Non-Hispa..  |  2.8267202     2.547761  
+ Other Race  |  1.8432706     .7784806  
+             |
+waist_circum |  .16693319    .18778151  
+      weight |  .00454412   -.01236774  
+  total_chol |  .02493955    .02690838  
+         hdl |    .003941    .00386078  
+             |
+      ALQ150 |
+          1  |  13.337049    10.334606  
+             |
+      ALQ150#|
+          c. |
+waist_circum |
+          1  | -.14233716     -.109141  
+             |
+       _cons |  76.516333    75.439179  
+----------------------------------------
+
+</code></pre>
+<h3><a href="#passive-imputation" id="passive-imputation">Passive imputation</a></h3>
+<pre><code>. mi extract 0, clear
+
+. mi set flong
+
+. mi register imputed sbp waist_circum weight total_chol hdl ALQ150
+(1234 m=0 obs. now marked as incomplete)
+
+. mi impute chained (reg, include((waist_circum*ALQ150))) sbp /*
+&gt; */ (reg) waist_circum weight total_chol hdl (logit) ALQ150, add(10) rseed(21466)
+
+Conditional models:
+            weight: regress weight sbp waist_circum total_chol hdl i.ALQ150
+               sbp: regress sbp weight waist_circum total_chol hdl i.ALQ150 (waist_circum*ALQ150)
+      waist_circum: regress waist_circum weight sbp total_chol hdl i.ALQ150
+        total_chol: regress total_chol weight sbp waist_circum hdl i.ALQ150
+               hdl: regress hdl weight sbp waist_circum total_chol i.ALQ150
+            ALQ150: logit ALQ150 weight sbp waist_circum total_chol hdl
+
+Performing chained iterations ...
+
+Multivariate imputation                     Imputations =       10
+Chained equations                                 added =       10
+Imputed: m=1 through m=10                       updated =        0
+
+Initialization: monotone                     Iterations =      100
+                                                burn-in =       10
+
+               sbp: linear regression
+      waist_circum: linear regression
+            weight: linear regression
+        total_chol: linear regression
+               hdl: linear regression
+            ALQ150: logistic regression
+
+------------------------------------------------------------------
+                   |               Observations per m             
+                   |----------------------------------------------
+          Variable |   Complete   Incomplete   Imputed |     Total
+-------------------+-----------------------------------+----------
+               sbp |       4285          156       156 |      4441
+      waist_circum |       4274          167       167 |      4441
+            weight |       4384           57        57 |      4441
+        total_chol |       4115          326       326 |      4441
+               hdl |       4114          327       327 |      4441
+            ALQ150 |       3511          930       930 |      4441
+------------------------------------------------------------------
+(complete + incomplete = total; imputed is the minimum across m
+ of the number of filled-in observations.)
+
+</code></pre>
+<p><strong>Fit the substantive model to the imputed datasets and compare the results with those obtained earlier. Check what modelling assumptions have been made by the imputation process and consider how this may impact on the validity of the final estimates.</strong></p>
+<p>We are now imputing missing values in <code>sbp</code> from the same model as our substantive model, including the <code>waist_circum*ALQ150</code> interaction, which is a good thing. But when imputing <code>waist_circum</code> and (more importantly given how many missing values there are) <code>ALQ150</code>, we are not allowing for interactions between the outcome <code>sbp</code> and <code>ALQ150</code> and <code>waist_circum</code> respectively. We could add additional interaction terms to the data frame, and try and do this, but this approach rapidly gets pretty complicated. Moreover, it is not readily appararent that if we do this our imputation models are definitely compatible/congenial with our substantive model.</p>
+<pre><code>. mi estimate, post: reg sbp i.gender age i.ethnicity waist_circum weight /*
+&gt; */ total_chol hdl i.ALQ150 c.waist_circum#i.ALQ150
+
+Multiple-imputation estimates                   Imputations       =         10
+Linear regression                               Number of obs     =      4,441
+                                                Average RVI       =     0.1114
+                                                Largest FMI       =     0.1888
+                                                Complete DF       =       4428
+DF adjustment:   Small sample                   DF:     min       =     250.74
+                                                        avg       =   1,741.20
+                                                        max       =   3,788.97
+Model F test:       Equal FMI                   F(  12, 3008.5)   =     160.28
+Within VCE type:          OLS                   Prob &gt; F          =     0.0000
+
+---------------------------------------------------------------------------------------
+                  sbp |      Coef.   Std. Err.      t    P&gt;|t|     [95% Conf. Interval]
+----------------------+----------------------------------------------------------------
+               gender |
+              Female  |  -.8245413   .5974926    -1.38   0.168    -1.996073    .3469899
+                  age |   .6042492   .0171603    35.21   0.000     .5705799    .6379186
+                      |
+            ethnicity |
+      Other Hispanic  |  -.6323016     1.1848    -0.53   0.594    -2.955208    1.690605
+  Non-Hispanic White  |   -2.98459   .6868042    -4.35   0.000    -4.331275   -1.637904
+  Non-Hispanic Black  |    2.52393   .8751035     2.88   0.004     .8074605    4.240399
+          Other Race  |   .8971402   1.631615     0.55   0.583    -2.304085    4.098366
+                      |
+         waist_circum |    .189255   .0461946     4.10   0.000      .098664    .2798461
+               weight |  -.0151625   .0359012    -0.42   0.673    -.0855732    .0552482
+           total_chol |   .0264831   .0070177     3.77   0.000     .0127149    .0402513
+                  hdl |   .0028873   .0195663     0.15   0.883    -.0354921    .0412666
+             1.ALQ150 |   11.53117   4.873282     2.37   0.019     1.943209    21.11912
+                      |
+ALQ150#c.waist_circum |
+                   1  |   -.118718   .0493509    -2.41   0.017    -.2159131   -.0215229
+                      |
+                _cons |   75.46892   2.710999    27.84   0.000     70.15177    80.78607
+---------------------------------------------------------------------------------------
+
+. est store MIpassive
+
+. est table CCA MIimpTransform MIpassive
+
+-----------------------------------------------------
+    Variable |    CCA       MIimpTra~m   MIpassive   
+-------------+---------------------------------------
+      gender |
+     Female  | -1.5367144   -.88067027   -.82454132  
+             |
+         age |  .59413155    .60218843    .60424925  
+             |
+   ethnicity |
+Other His..  |  .24086211   -.34606621   -.63230163  
+Non-Hispa..  | -2.6036657     -3.10836   -2.9845895  
+Non-Hispa..  |  2.8267202     2.547761    2.5239299  
+ Other Race  |  1.8432706     .7784806    .89714018  
+             |
+waist_circum |  .16693319    .18778151    .18925505  
+      weight |  .00454412   -.01236774   -.01516248  
+  total_chol |  .02493955    .02690838    .02648313  
+         hdl |    .003941    .00386078    .00288726  
+             |
+      ALQ150 |
+          1  |  13.337049    10.334606    11.531166  
+             |
+      ALQ150#|
+          c. |
+waist_circum |
+          1  | -.14233716     -.109141   -.11871799  
+             |
+       _cons |  76.516333    75.439179     75.46892  
+-----------------------------------------------------
+
+</code></pre>
+<h3><a href="#smcfcs" id="smcfcs">SMCFCS</a></h3>
+<pre><code>. ssc install smcfcs, replace
+checking smcfcs consistency and verifying not already installed...
+all files already exist and are up to date.
+
+</code></pre>
+<pre><code>. mi extract 0, clear
+
+. mi set flong
+
+. set seed 34412
+
+. gen waistALQ = waist_circum*ALQ150
+(995 missing values generated)
+
+. smcfcs reg sbp i.gender age i.ethnicity waist_circum weight total_chol hdl /*
+&gt; */  ALQ150 waistALQ, /*
+&gt; */ reg(sbp waist_circum weight total_chol hdl) logit(ALQ150) /*
+&gt; */ passive(waistALQ = waist_circum*ALQ150) m(10)
+waist_circum:  3057 values would be changed; not changed
+weight:  3522 values would be changed; not changed
+
+Covariate models:
+reg sbp waist_circum weight total_chol hdl i.ALQ150 i.gender age i.ethnicity
+reg waist_circum sbp weight total_chol hdl i.ALQ150 i.gender age i.ethnicity
+reg weight sbp waist_circum total_chol hdl i.ALQ150 i.gender age i.ethnicity
+reg total_chol sbp waist_circum weight hdl i.ALQ150 i.gender age i.ethnicity
+reg hdl sbp waist_circum weight total_chol i.ALQ150 i.gender age i.ethnicity
+logistic ALQ150 sbp waist_circum weight total_chol hdl i.gender age i.ethnicity, coef
+
+Your passive statement(s) say:
+waistALQ = waist_circum*ALQ150
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 4 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+.Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 4 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 4 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 4 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 4 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+.Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 4 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+.Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+.Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 5 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 0 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+.Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 4 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 0 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+.Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 5 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+.Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 4 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 4 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 4 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+.Warning: valid imputed values may not have been generated for 4 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 4 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+.Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 4 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 3 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+.
+10 imputations generated
+Fitting substantive model to multiple imputations
+
+Multiple-imputation estimates                   Imputations       =         10
+Linear regression                               Number of obs     =      4,441
+                                                Average RVI       =     0.1510
+                                                Largest FMI       =     0.4552
+                                                Complete DF       =       4428
+DF adjustment:   Small sample                   DF:     min       =      47.11
+                                                        avg       =   1,221.23
+                                                        max       =   3,256.95
+Model F test:       Equal FMI                   F(  12, 2405.5)   =     167.43
+Within VCE type:          OLS                   Prob &gt; F          =     0.0000
+
+-------------------------------------------------------------------------------------
+                sbp |      Coef.   Std. Err.      t    P&gt;|t|     [95% Conf. Interval]
+--------------------+----------------------------------------------------------------
+             gender |
+            Female  |  -.9648633   .6110331    -1.58   0.115    -2.163353    .2336262
+                age |   .6347695   .0172326    36.84   0.000      .600954     .668585
+                    |
+          ethnicity |
+    Other Hispanic  |   -.458823   1.176188    -0.39   0.696    -2.764986     1.84734
+Non-Hispanic White  |  -3.334173   .6825305    -4.89   0.000    -4.672557   -1.995789
+Non-Hispanic Black  |   2.499793    .884089     2.83   0.005     .7647297    4.234857
+        Other Race  |   .7237391   1.570326     0.46   0.645    -2.355187    3.802665
+                    |
+       waist_circum |   .1274112     .04686     2.72   0.007      .035479    .2193433
+             weight |   .0340915   .0378026     0.90   0.368    -.0402136    .1083966
+         total_chol |   .0294128   .0073216     4.02   0.000     .0150007     .043825
+                hdl |  -.0006896   .0198462    -0.03   0.972    -.0396494    .0382702
+             ALQ150 |   12.87822   5.946117     2.17   0.035     .9168902    24.83955
+           waistALQ |  -.1426241    .059136    -2.41   0.020    -.2615177   -.0237306
+              _cons |   76.02357   2.765859    27.49   0.000     70.59047    81.45668
+-------------------------------------------------------------------------------------
+
+</code></pre>
+<pre><code>. mi estimate, post: reg sbp i.gender age i.ethnicity waist_circum weight /*
+&gt; */ total_chol hdl i.ALQ150 c.waist_circum#i.ALQ150
+
+Multiple-imputation estimates                   Imputations       =         10
+Linear regression                               Number of obs     =      4,441
+                                                Average RVI       =     0.1510
+                                                Largest FMI       =     0.4554
+                                                Complete DF       =       4428
+DF adjustment:   Small sample                   DF:     min       =      47.11
+                                                        avg       =   1,221.23
+                                                        max       =   3,256.95
+Model F test:       Equal FMI                   F(  12, 2405.5)   =     167.43
+Within VCE type:          OLS                   Prob &gt; F          =     0.0000
+
+---------------------------------------------------------------------------------------
+                  sbp |      Coef.   Std. Err.      t    P&gt;|t|     [95% Conf. Interval]
+----------------------+----------------------------------------------------------------
+               gender |
+              Female  |  -.9648633   .6110331    -1.58   0.115    -2.163353    .2336262
+                  age |   .6347695   .0172326    36.84   0.000      .600954     .668585
+                      |
+            ethnicity |
+      Other Hispanic  |   -.458823   1.176188    -0.39   0.696    -2.764986     1.84734
+  Non-Hispanic White  |  -3.334173   .6825305    -4.89   0.000    -4.672557   -1.995789
+  Non-Hispanic Black  |   2.499793    .884089     2.83   0.005     .7647297    4.234857
+          Other Race  |   .7237391   1.570326     0.46   0.645    -2.355187    3.802665
+                      |
+         waist_circum |   .1274112     .04686     2.72   0.007      .035479    .2193433
+               weight |   .0340915   .0378026     0.90   0.368    -.0402136    .1083966
+           total_chol |   .0294128   .0073216     4.02   0.000     .0150007     .043825
+                  hdl |  -.0006896   .0198462    -0.03   0.972    -.0396494    .0382702
+             1.ALQ150 |   12.87822   5.946117     2.17   0.035     .9168904    24.83955
+                      |
+ALQ150#c.waist_circum |
+                   1  |  -.1426241    .059136    -2.41   0.020    -.2615177   -.0237306
+                      |
+                _cons |   76.02357   2.765859    27.49   0.000     70.59047    81.45668
+---------------------------------------------------------------------------------------
+
+. est store smcfcs
+
+. est table CCA MIimpTransform MIpassive smcfcs
+
+------------------------------------------------------------------
+    Variable |    CCA       MIimpTra~m   MIpassive      smcfcs    
+-------------+----------------------------------------------------
+      gender |
+     Female  | -1.5367144   -.88067027   -.82454132   -.96486329  
+             |
+         age |  .59413155    .60218843    .60424925    .63476948  
+             |
+   ethnicity |
+Other His..  |  .24086211   -.34606621   -.63230163   -.45882304  
+Non-Hispa..  | -2.6036657     -3.10836   -2.9845895   -3.3341729  
+Non-Hispa..  |  2.8267202     2.547761    2.5239299    2.4997932  
+ Other Race  |  1.8432706     .7784806    .89714018    .72373911  
+             |
+waist_circum |  .16693319    .18778151    .18925505    .12741115  
+      weight |  .00454412   -.01236774   -.01516248    .03409151  
+  total_chol |  .02493955    .02690838    .02648313    .02941283  
+         hdl |    .003941    .00386078    .00288726   -.00068959  
+             |
+      ALQ150 |
+          1  |  13.337049    10.334606    11.531166     12.87822  
+             |
+      ALQ150#|
+          c. |
+waist_circum |
+          1  | -.14233716     -.109141   -.11871799   -.14262412  
+             |
+       _cons |  76.516333    75.439179     75.46892    76.023574  
+------------------------------------------------------------------
+
+</code></pre>
+<p><strong>Compare the estimates to those obtained earlier, in particular those involving <code>waist_circum</code> and <code>ALQ150</code>.</strong></p>
+<p>Focusing on the terms involving <code>waist_circum</code> and <code>ALQ150</code>: the interaction coefficient from SMCFCS is the one closest to the CCA, with the other MI estimates of the interaction diluted towards the null. This is what we expect given that the impute then transform and passive MI approaches do not properly allow for the possibility of an interaction effect. The SMCFCS <code>ALQ150</code> coefficient is also closest to the CCA one. However, the SMCFCS <code>waist_circum</code> estimate is quite a bit smaller than all of other estimates - it is not immediately clear why.</p>
+<h2><a href="#cox-proportional-hazards-substantive-model" id="cox-proportional-hazards-substantive-model">Cox proportional hazards substantive model</a></h2>
+<pre><code>. use &quot;nhanesMort.dta&quot;, clear
+(Written by R.              )
+
+. stset tMonths, failure(dead)
+
+     failure event:  dead != 0 &amp; dead &lt; .
+obs. time interval:  (0, tMonths]
+ exit on or before:  failure
+
+------------------------------------------------------------------------------
+      4,441  total observations
+          0  exclusions
+------------------------------------------------------------------------------
+      4,441  observations remaining, representing
+      1,166  failures in single-record/single-failure data
+    738,155  total analysis time at risk and under observation
+                                                at risk from t =         0
+                                     earliest observed entry t =         0
+                                          last observed exit t =       201
+
+. stcox i.gender age i.ethnicity sbp waist_circum weight total_chol hdl i.ALQ150
+
+         failure _d:  dead
+   analysis time _t:  tMonths
+
+Iteration 0:   log likelihood = -6159.5989
+Iteration 1:   log likelihood = -5518.8937
+Iteration 2:   log likelihood =  -5503.098
+Iteration 3:   log likelihood = -5503.0715
+Iteration 4:   log likelihood = -5503.0715
+Refining estimates:
+Iteration 0:   log likelihood = -5503.0715
+
+Cox regression -- Breslow method for ties
+
+No. of subjects =        3,207                  Number of obs    =       3,207
+No. of failures =          778
+Time at risk    =       542481
+                                                LR chi2(12)      =     1313.05
+Log likelihood  =   -5503.0715                  Prob &gt; chi2      =      0.0000
+
+-------------------------------------------------------------------------------------
+                 _t | Haz. Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
+--------------------+----------------------------------------------------------------
+             gender |
+            Female  |   .6731938    .057351    -4.65   0.000     .5696711     .795529
+                age |   1.074855   .0036037    21.53   0.000     1.067815    1.081941
+                    |
+          ethnicity |
+    Other Hispanic  |   .5733247   .1165489    -2.74   0.006     .3849137     .853961
+Non-Hispanic White  |   1.055227   .0990695     0.57   0.567     .8778718    1.268412
+Non-Hispanic Black  |   1.379402   .1666386     2.66   0.008     1.088583    1.747915
+        Other Race  |   .9548058   .2744417    -0.16   0.872     .5435663    1.677172
+                    |
+                sbp |    1.00536   .0018246     2.95   0.003     1.001791    1.008943
+       waist_circum |   1.028673   .0066251     4.39   0.000      1.01577    1.041741
+             weight |   .9726639   .0052477    -5.14   0.000     .9624328    .9830039
+         total_chol |   .9990907   .0009628    -0.94   0.345     .9972055    1.000979
+                hdl |   1.001323   .0025238     0.52   0.600     .9963889    1.006282
+           1.ALQ150 |    1.54576   .1320804     5.10   0.000     1.307403    1.827572
+-------------------------------------------------------------------------------------
+
+. est store CCA
+
+</code></pre>
+<pre><code>. set seed 7233
+
+. smcfcs stcox gender age i.ethnicity sbp waist_circum weight total_chol hdl ALQ150, /*
+&gt; */ reg(sbp waist_circum weight total_chol hdl) logit(ALQ150)
+waist_circum:  3057 values would be changed; not changed
+weight:  3522 values would be changed; not changed
+
+Covariate models:
+reg sbp waist_circum weight total_chol hdl i.ALQ150 gender age i.ethnicity
+reg waist_circum sbp weight total_chol hdl i.ALQ150 gender age i.ethnicity
+reg weight sbp waist_circum total_chol hdl i.ALQ150 gender age i.ethnicity
+reg total_chol sbp waist_circum weight hdl i.ALQ150 gender age i.ethnicity
+reg hdl sbp waist_circum weight total_chol i.ALQ150 gender age i.ethnicity
+logistic ALQ150 sbp waist_circum weight total_chol hdl gender age i.ethnicity, coef
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+.Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+.Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+.Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+.Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 2 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+Warning: valid imputed values may not have been generated for 1 subject(s). You should probably increase the rejection sampling limit.
+.
+5 imputations generated
+Fitting substantive model to multiple imputations
+
+Multiple-imputation estimates                   Imputations       =          5
+Cox regression: Breslow method for ties         Number of obs     =      4,441
+                                                Average RVI       =     0.0557
+                                                Largest FMI       =     0.2334
+DF adjustment:   Large sample                   DF:     min       =      85.90
+                                                        avg       =  14,311.29
+                                                        max       =  74,410.56
+Model F test:       Equal FMI                   F(  12,14563.8)   =     111.50
+Within VCE type:          OIM                   Prob &gt; F          =     0.0000
+
+-------------------------------------------------------------------------------------
+                 _t |      Coef.   Std. Err.      t    P&gt;|t|     [95% Conf. Interval]
+--------------------+----------------------------------------------------------------
+             gender |   -.363237   .0683023    -5.32   0.000    -.4971122   -.2293618
+                age |   .0724633    .002759    26.26   0.000     .0670551    .0778714
+                    |
+          ethnicity |
+    Other Hispanic  |  -.3362507   .1602823    -2.10   0.036    -.6504034   -.0220981
+Non-Hispanic White  |   .0808425   .0788298     1.03   0.305    -.0736748    .2353599
+Non-Hispanic Black  |   .3114252   .0973813     3.20   0.001     .1205303      .50232
+        Other Race  |  -.1236874   .2037757    -0.61   0.544    -.5230978    .2757231
+                    |
+                sbp |   .0045881   .0014461     3.17   0.002     .0017512    .0074249
+       waist_circum |   .0262897   .0053011     4.96   0.000     .0158899    .0366895
+             weight |  -.0231525   .0043795    -5.29   0.000    -.0317413   -.0145637
+         total_chol |   -.001069   .0008231    -1.30   0.195    -.0026868    .0005487
+                hdl |   .0013553   .0022387     0.61   0.545     -.003047    .0057575
+             ALQ150 |   .4380063    .080461     5.44   0.000     .2780526    .5979601
+-------------------------------------------------------------------------------------
+
+</code></pre>
+<pre><code>. mi estimate, post: stcox i.gender age i.ethnicity sbp waist_circum weight /*
+&gt; */ total_chol hdl i.ALQ150
+
+Multiple-imputation estimates                   Imputations       =          5
+Cox regression: Breslow method for ties         Number of obs     =      4,441
+                                                Average RVI       =     0.0557
+                                                Largest FMI       =     0.2334
+DF adjustment:   Large sample                   DF:     min       =      85.90
+                                                        avg       =  14,311.29
+                                                        max       =  74,410.56
+Model F test:       Equal FMI                   F(  12,14563.8)   =     111.50
+Within VCE type:          OIM                   Prob &gt; F          =     0.0000
+
+-------------------------------------------------------------------------------------
+                 _t |      Coef.   Std. Err.      t    P&gt;|t|     [95% Conf. Interval]
+--------------------+----------------------------------------------------------------
+             gender |
+            Female  |   -.363237   .0683023    -5.32   0.000    -.4971122   -.2293618
+                age |   .0724633    .002759    26.26   0.000     .0670551    .0778714
+                    |
+          ethnicity |
+    Other Hispanic  |  -.3362507   .1602823    -2.10   0.036    -.6504034   -.0220981
+Non-Hispanic White  |   .0808425   .0788298     1.03   0.305    -.0736748    .2353599
+Non-Hispanic Black  |   .3114252   .0973813     3.20   0.001     .1205303      .50232
+        Other Race  |  -.1236874   .2037757    -0.61   0.544    -.5230978    .2757231
+                    |
+                sbp |   .0045881   .0014461     3.17   0.002     .0017512    .0074249
+       waist_circum |   .0262897   .0053011     4.96   0.000     .0158899    .0366895
+             weight |  -.0231525   .0043795    -5.29   0.000    -.0317413   -.0145637
+         total_chol |   -.001069   .0008231    -1.30   0.195    -.0026868    .0005487
+                hdl |   .0013553   .0022387     0.61   0.545     -.003047    .0057575
+           1.ALQ150 |   .4380063    .080461     5.44   0.000     .2780526    .5979601
+-------------------------------------------------------------------------------------
+
+. est store smcfcs
+
+. est table CCA smcfcs, se
+
+----------------------------------------
+    Variable |    CCA         smcfcs    
+-------------+--------------------------
+      gender |
+     Female  |   -.395722   -.36323698  
+             |  .08519242    .06830225  
+             |
+         age |  .07218534    .07246326  
+             |  .00335275    .00275902  
+             |
+   ethnicity |
+Other His..  | -.55630298   -.33625071  
+             |  .20328601     .1602823  
+Non-Hispa..  |   .0537557    .08084252  
+             |  .09388459     .0788298  
+Non-Hispa..  |  .32165004    .31142517  
+             |  .12080495    .09738133  
+ Other Race  | -.04624734   -.12368739  
+             |  .28743195    .20377572  
+             |
+         sbp |  .00534598    .00458806  
+             |  .00181486    .00144614  
+waist_circum |  .02827009    .02628971  
+             |  .00644042    .00530108  
+      weight | -.02771665   -.02315249  
+             |  .00539522    .00437949  
+  total_chol | -.00090972   -.00106902  
+             |  .00096363    .00082306  
+         hdl |  .00132232    .00135526  
+             |  .00252045    .00223868  
+             |
+      ALQ150 |
+          1  |  .43551556    .43800635  
+             |  .08544693    .08046102  
+----------------------------------------
+                            legend: b/se
+
+</code></pre>
+<p><strong>How do the estimates and standard errors compare between CCA and after imputation using <code>smcfcs</code>?</strong></p>
+<p>With a few exceptions, the changes in coefficients are mostly small. For the standard errors, we see as we would expect reductions in standard errors for those covariates which are fully observed or mostly fully observed. In contrast, the standard error for <code>ALQ150</code> is actually a little bit larger than from CCA.</p>
