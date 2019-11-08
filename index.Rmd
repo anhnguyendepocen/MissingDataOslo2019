@@ -14,10 +14,10 @@ Course instructor: Jonathan Bartlett, [University of Bath](http://www.bath.ac.uk
 
 ## Lecture slides
 
-* [Lecture 1](Lectures/lecture1.pdf)
-* [Lecture 2](Lectures/lecture2.pdf)
-* [Lecture 3](Lectures/lecture3.pdf)
-* [Lecture 4](Lectures/lecture4.pdf)
+* [Lecture 1](Lectures/Lecture1.pdf)
+* [Lecture 2](Lectures/Lecture2.pdf)
+* [Lecture 3](Lectures/Lecture3.pdf)
+* [Lecture 4](Lectures/Lecture4.pdf)
 
 ## Datasets for practicals
 The following zip file contains the datasets needed for the practicals.
