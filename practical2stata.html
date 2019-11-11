@@ -8,7 +8,7 @@ summ
 </code></pre>
 <p>The data summary shows that quite a few of the variables collected at the survey have some missing data. There are no missing values in the mortality status variable <code>dead</code> nor the corresponding time to death/censoring, <code>tMonths</code>.</p>
 <h2><a href="#alcohol-consumption" id="alcohol-consumption">Alcohol consumption</a></h2>
-<p>The first analysis of the NHANES data we will consider is a marginal analysis of the alcohol variable <code>ALQ150</code> we have, which is the respondent&rsquo;s answer to the question &lsquo;Was there ever a time or times in your life when you drank 5 or more drinks of any kind of alcoholic beverage almost every day?&rsquo;. Since this variable is binary (yes/no), this analysis aims to simply estimate the proportion whose answer to this question is yes. The data summary earlier showed that of the <code>r dim(nhanesMort)[1]</code> observations in the dataset, <code>r sum(is.na(nhanesMort$ALQ150))</code> are missing this variable.</p>
+<p>The first analysis of the NHANES data we will consider is a marginal analysis of the alcohol variable <code>ALQ150</code> we have, which is the respondent&rsquo;s answer to the question &lsquo;Was there ever a time or times in your life when you drank 5 or more drinks of any kind of alcoholic beverage almost every day?&rsquo;. Since this variable is binary (yes/no), this analysis aims to simply estimate the proportion whose answer to this question is yes. The data summary earlier showed that of the 4441 observations in the dataset, 930 are missing this variable.</p>
 <h3><a href="#complete-case-analysis" id="complete-case-analysis">Complete case analysis</a></h3>
 <p>First perform a complete case analysis:</p>
 <pre><code>proportion ALQ150

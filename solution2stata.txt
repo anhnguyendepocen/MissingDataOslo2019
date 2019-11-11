@@ -19,7 +19,7 @@ proportion ALQ150
 
 **Next, perform a logistic regression analysis to see whether and how missingness in `ALQ150` is associated with age, ethnicity, and gender. What do you conclude about the missingness mechanism for `ALQ150`?**
 
-To fit a logistic regression model for missingness of `ALQ150` we will use `is.na(nhanesMort$ALQ150)` as our dependent variable. Thus 'success' in the logistic regression will correspond to `ALQ150` being missing.
+To fit a logistic regression model for missingness of `ALQ150` we will create a new variable which is 1 if `ALQ150` is observed and is 0 if it is missing, and then use this as our dependent variable:
 ~~~~
 <<dd_do>>
 gen rALQ=1*(ALQ150!=.)

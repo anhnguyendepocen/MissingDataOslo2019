@@ -38,7 +38,7 @@ Proportion estimation             Number of obs   =      3,511
 
 </code></pre>
 <p><strong>Next, perform a logistic regression analysis to see whether and how missingness in <code>ALQ150</code> is associated with age, ethnicity, and gender. What do you conclude about the missingness mechanism for <code>ALQ150</code>?</strong></p>
-<p>To fit a logistic regression model for missingness of <code>ALQ150</code> we will use <code>is.na(nhanesMort$ALQ150)</code> as our dependent variable. Thus &lsquo;success&rsquo; in the logistic regression will correspond to <code>ALQ150</code> being missing.</p>
+<p>To fit a logistic regression model for missingness of <code>ALQ150</code> we will create a new variable which is 1 if <code>ALQ150</code> is observed and is 0 if it is missing, and then use this as our dependent variable:</p>
 <pre><code>. gen rALQ=1*(ALQ150!=.)
 
 . logistic rALQ age i.ethnicity i.gender
@@ -48,21 +48,21 @@ Logistic regression                             Number of obs     =      4,441
                                                 Prob &gt; chi2       =     0.0000
 Log likelihood = -2141.9684                     Pseudo R2         =     0.0601
 
--------------------------------------------------------------------------------
-         rALQ | Odds Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
---------------+----------------------------------------------------------------
-          age |   .9920572    .002028    -3.90   0.000     .9880902      .99604
-              |
-    ethnicity |
-Other Hisp..  |   1.260406   .2066849     1.41   0.158     .9139617    1.738172
-Non-Hispan..  |   1.803683   .1696688     6.27   0.000     1.499994    2.168858
-Non-Hispan..  |   .9244028   .0978583    -0.74   0.458      .751194     1.13755
-  Other Race  |   .7230206   .1449631    -1.62   0.106     .4880763    1.071059
-              |
-       gender |
-      Female  |   .3284302   .0270659   -13.51   0.000     .2794446    .3860027
-        _cons |   8.916456   1.213813    16.07   0.000     6.828365    11.64308
--------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+               rALQ | Odds Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
+--------------------+----------------------------------------------------------------
+                age |   .9920572    .002028    -3.90   0.000     .9880902      .99604
+                    |
+          ethnicity |
+    Other Hispanic  |   1.260406   .2066849     1.41   0.158     .9139617    1.738172
+Non-Hispanic White  |   1.803683   .1696688     6.27   0.000     1.499994    2.168858
+Non-Hispanic Black  |   .9244028   .0978583    -0.74   0.458      .751194     1.13755
+        Other Race  |   .7230206   .1449631    -1.62   0.106     .4880763    1.071059
+                    |
+             gender |
+            Female  |   .3284302   .0270659   -13.51   0.000     .2794446    .3860027
+              _cons |   8.916456   1.213813    16.07   0.000     6.828365    11.64308
+-------------------------------------------------------------------------------------
 Note: _cons estimates baseline odds.
 
 </code></pre>
@@ -75,21 +75,21 @@ Logistic regression                             Number of obs     =      3,511
                                                 Prob &gt; chi2       =     0.0000
 Log likelihood = -1577.5065                     Pseudo R2         =     0.0719
 
--------------------------------------------------------------------------------
-       ALQ150 | Odds Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
---------------+----------------------------------------------------------------
-          age |   1.009471   .0024918     3.82   0.000     1.004599    1.014367
-              |
-    ethnicity |
-Other Hisp..  |   1.125227   .2161281     0.61   0.539     .7722282    1.639589
-Non-Hispan..  |   .7527392    .082406    -2.59   0.009     .6073785    .9328884
-Non-Hispan..  |   1.094731   .1448776     0.68   0.494      .844615    1.418914
-  Other Race  |   .7916074   .2271886    -0.81   0.415     .4510431    1.389318
-              |
-       gender |
-      Female  |   .2562519    .025753   -13.55   0.000     .2104372    .3120411
-        _cons |   .2678461   .0407586    -8.66   0.000     .1987726    .3609226
--------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+             ALQ150 | Odds Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
+--------------------+----------------------------------------------------------------
+                age |   1.009471   .0024918     3.82   0.000     1.004599    1.014367
+                    |
+          ethnicity |
+    Other Hispanic  |   1.125227   .2161281     0.61   0.539     .7722282    1.639589
+Non-Hispanic White  |   .7527392    .082406    -2.59   0.009     .6073785    .9328884
+Non-Hispanic Black  |   1.094731   .1448776     0.68   0.494      .844615    1.418914
+        Other Race  |   .7916074   .2271886    -0.81   0.415     .4510431    1.389318
+                    |
+             gender |
+            Female  |   .2562519    .025753   -13.55   0.000     .2104372    .3120411
+              _cons |   .2678461   .0407586    -8.66   0.000     .1987726    .3609226
+-------------------------------------------------------------------------------------
 Note: _cons estimates baseline odds.
 
 </code></pre>
@@ -151,35 +151,34 @@ Within VCE type:     Analytic             max     =     169.50
 
 . gen dead10 = 1*((dead==1) &amp; (tMonths&lt;120))
 
-. logistic dead10 i.gender age i.ethnicity sbp waist_circum weight total_chol hd
-&gt; l i.ALQ150
+. logistic dead10 i.gender age i.ethnicity sbp waist_circum weight total_chol hdl i.ALQ150
 
 Logistic regression                             Number of obs     =      3,207
                                                 LR chi2(12)       =     812.51
                                                 Prob &gt; chi2       =     0.0000
 Log likelihood = -926.52636                     Pseudo R2         =     0.3048
 
--------------------------------------------------------------------------------
-       dead10 | Odds Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
---------------+----------------------------------------------------------------
-       gender |
-      Female  |   .5566595   .0774084    -4.21   0.000     .4238602    .7310661
-          age |   1.087264   .0059164    15.38   0.000      1.07573    1.098922
-              |
-    ethnicity |
-Other Hisp..  |   .7688017   .2195072    -0.92   0.357     .4393194     1.34539
-Non-Hispan..  |   .9153538   .1386723    -0.58   0.559     .6801983    1.231806
-Non-Hispan..  |   1.388326   .2725993     1.67   0.095     .9448375     2.03998
-  Other Race  |   .9203752   .4170787    -0.18   0.855     .3786457    2.237159
-              |
-          sbp |   1.006176   .0029841     2.08   0.038     1.000344    1.012042
- waist_circum |   1.034965   .0110383     3.22   0.001     1.013555    1.056828
-       weight |   .9646324   .0086442    -4.02   0.000     .9478379    .9817244
-   total_chol |   .9994396   .0015256    -0.37   0.713      .996454    1.002434
-          hdl |   1.001088   .0039712     0.27   0.784     .9933345    1.008901
-     1.ALQ150 |   1.836905   .2594248     4.31   0.000     1.392747    2.422709
-        _cons |   .0003768   .0002677   -11.10   0.000     .0000936    .0015168
--------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+             dead10 | Odds Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
+--------------------+----------------------------------------------------------------
+             gender |
+            Female  |   .5566595   .0774084    -4.21   0.000     .4238602    .7310661
+                age |   1.087264   .0059164    15.38   0.000      1.07573    1.098922
+                    |
+          ethnicity |
+    Other Hispanic  |   .7688017   .2195072    -0.92   0.357     .4393194     1.34539
+Non-Hispanic White  |   .9153538   .1386723    -0.58   0.559     .6801983    1.231806
+Non-Hispanic Black  |   1.388326   .2725993     1.67   0.095     .9448375     2.03998
+        Other Race  |   .9203752   .4170787    -0.18   0.855     .3786457    2.237159
+                    |
+                sbp |   1.006176   .0029841     2.08   0.038     1.000344    1.012042
+       waist_circum |   1.034965   .0110383     3.22   0.001     1.013555    1.056828
+             weight |   .9646324   .0086442    -4.02   0.000     .9478379    .9817244
+         total_chol |   .9994396   .0015256    -0.37   0.713      .996454    1.002434
+                hdl |   1.001088   .0039712     0.27   0.784     .9933345    1.008901
+           1.ALQ150 |   1.836905   .2594248     4.31   0.000     1.392747    2.422709
+              _cons |   .0003768   .0002677   -11.10   0.000     .0000936    .0015168
+-------------------------------------------------------------------------------------
 Note: _cons estimates baseline odds.
 
 </code></pre>
@@ -216,58 +215,57 @@ Logistic regression                             Number of obs     =      4,441
                                                 Prob &gt; chi2       =     0.0000
 Log likelihood = -2480.1374                     Pseudo R2         =     0.0549
 
--------------------------------------------------------------------------------
-           cc | Odds Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
---------------+----------------------------------------------------------------
-       dead10 |   .5638703   .0573286    -5.64   0.000     .4619954    .6882098
-              |
-       gender |
-      Female  |   .4105986   .0296831   -12.31   0.000     .3563544    .4730998
-          age |   .9957184   .0021116    -2.02   0.043     .9915884    .9998656
-              |
-    ethnicity |
-Other Hisp..  |   1.099404   .1652834     0.63   0.528     .8188202    1.476136
-Non-Hispan..  |   1.557791    .134322     5.14   0.000     1.315569    1.844611
-Non-Hispan..  |   .7204989   .0704904    -3.35   0.001      .594779    .8727927
-  Other Race  |   .5288552   .0982255    -3.43   0.001     .3674863    .7610837
-              |
-        _cons |   5.442413   .6831854    13.50   0.000     4.255398    6.960536
--------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+                 cc | Odds Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
+--------------------+----------------------------------------------------------------
+             dead10 |   .5638703   .0573286    -5.64   0.000     .4619954    .6882098
+                    |
+             gender |
+            Female  |   .4105986   .0296831   -12.31   0.000     .3563544    .4730998
+                age |   .9957184   .0021116    -2.02   0.043     .9915884    .9998656
+                    |
+          ethnicity |
+    Other Hispanic  |   1.099404   .1652834     0.63   0.528     .8188202    1.476136
+Non-Hispanic White  |   1.557791    .134322     5.14   0.000     1.315569    1.844611
+Non-Hispanic Black  |   .7204989   .0704904    -3.35   0.001      .594779    .8727927
+        Other Race  |   .5288552   .0982255    -3.43   0.001     .3674863    .7610837
+                    |
+              _cons |   5.442413   .6831854    13.50   0.000     4.255398    6.960536
+-------------------------------------------------------------------------------------
 Note: _cons estimates baseline odds.
 
 </code></pre>
 <p>This shows that the probability of being a complete case  is still associated with <code>dead10</code> conditional on <code>gender</code>, <code>age</code> and <code>ethnicity</code>, and moreover that gender and ethnicity are associated with missingness. From these analyses it is difficult to say with any certainty whether the earlier CCA is valid.</p>
 <p>We cannot put all the substantive model variables into our model for whether an individual is a complete case, because of the missingness in some of the covariates. Nevertheless, the variable which by far has the most missingness is <code>ALQ150</code>, and so whether an individual is a complete case is to a great extent driven by missingness in <code>ALQ150</code>. Thus we will look at how missingness in <code>ALQ150</code> depends on <code>dead10</code> and the other covariates in the substantive model, which are mostly fully observed:</p>
-<pre><code>. logistic rALQ dead10 i.gender age i.ethnicity sbp waist_circum weight total_ch
-&gt; ol hdl
+<pre><code>. logistic rALQ dead10 i.gender age i.ethnicity sbp waist_circum weight total_chol hdl
 
 Logistic regression                             Number of obs     =      3,911
                                                 LR chi2(12)       =     285.70
                                                 Prob &gt; chi2       =     0.0000
 Log likelihood = -1700.8023                     Pseudo R2         =     0.0775
 
--------------------------------------------------------------------------------
-         rALQ | Odds Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
---------------+----------------------------------------------------------------
-       dead10 |    .956481   .1298585    -0.33   0.743     .7330124    1.248077
-              |
-       gender |
-      Female  |    .311692   .0320997   -11.32   0.000     .2547207    .3814055
-          age |   .9986674   .0033378    -0.40   0.690     .9921468    1.005231
-              |
-    ethnicity |
-Other Hisp..  |    1.14307   .2044511     0.75   0.455     .8050553    1.623005
-Non-Hispan..  |   1.633044   .1784093     4.49   0.000     1.318271    2.022979
-Non-Hispan..  |   .7906571   .1048235    -1.77   0.076     .6097304    1.025271
-  Other Race  |   .6467518   .1511802    -1.86   0.062     .4090409    1.022607
-              |
-          sbp |   .9955031   .0024149    -1.86   0.063     .9907812    1.000248
- waist_circum |   .9781391   .0069811    -3.10   0.002     .9645517    .9919178
-       weight |   1.026785   .0060639     4.48   0.000     1.014969     1.03874
-   total_chol |   1.002008   .0011148     1.80   0.071     .9998251    1.004195
-          hdl |   1.010394   .0031896     3.28   0.001     1.004162    1.016665
-        _cons |   6.563413   2.933308     4.21   0.000     2.733458    15.75967
--------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+               rALQ | Odds Ratio   Std. Err.      z    P&gt;|z|     [95% Conf. Interval]
+--------------------+----------------------------------------------------------------
+             dead10 |    .956481   .1298585    -0.33   0.743     .7330124    1.248077
+                    |
+             gender |
+            Female  |    .311692   .0320997   -11.32   0.000     .2547207    .3814055
+                age |   .9986674   .0033378    -0.40   0.690     .9921468    1.005231
+                    |
+          ethnicity |
+    Other Hispanic  |    1.14307   .2044511     0.75   0.455     .8050553    1.623005
+Non-Hispanic White  |   1.633044   .1784093     4.49   0.000     1.318271    2.022979
+Non-Hispanic Black  |   .7906571   .1048235    -1.77   0.076     .6097304    1.025271
+        Other Race  |   .6467518   .1511802    -1.86   0.062     .4090409    1.022607
+                    |
+                sbp |   .9955031   .0024149    -1.86   0.063     .9907812    1.000248
+       waist_circum |   .9781391   .0069811    -3.10   0.002     .9645517    .9919178
+             weight |   1.026785   .0060639     4.48   0.000     1.014969     1.03874
+         total_chol |   1.002008   .0011148     1.80   0.071     .9998251    1.004195
+                hdl |   1.010394   .0031896     3.28   0.001     1.004162    1.016665
+              _cons |   6.563413   2.933308     4.21   0.000     2.733458    15.75967
+-------------------------------------------------------------------------------------
 Note: _cons estimates baseline odds.
 
 </code></pre>
