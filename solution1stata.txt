@@ -93,7 +93,7 @@ Again from the first logistic regression we find evidence to reject MCAR. It is 
 ## Dataset 4
 ~~~~
 <<dd_do>>
-use practical1_3.dta, clear
+use practical1_4.dta, clear
 gen r = 1*(sbpmiss!=.)
 logistic r age
 logistic r age sbpcomplete
